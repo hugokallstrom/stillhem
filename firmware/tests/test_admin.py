@@ -52,7 +52,7 @@ def test_login_with_wrong_password_shows_error(client: TestClient) -> None:
 def test_authenticated_root_renders_dashboard(authed_client: TestClient) -> None:
     resp = authed_client.get("/")
     assert resp.status_code == 200
-    assert "algoro" in resp.text.lower()
+    assert "stillhem" in resp.text.lower()
 
 
 def test_logout_clears_session(authed_client: TestClient) -> None:
