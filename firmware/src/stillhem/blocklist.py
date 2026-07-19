@@ -4,10 +4,10 @@ from pathlib import Path
 from .db import get_db
 
 ACTIVE_BLOCKLIST_PATH = Path(
-    os.environ.get("ALGORO_BLOCKLIST_PATH", "/var/lib/algoro/active_blocklist.txt")
+    os.environ.get("STILLHEM_BLOCKLIST_PATH", "/var/lib/stillhem/active_blocklist.txt")
 )
 PRESET_DIR = Path(
-    os.environ.get("ALGORO_PRESET_DIR", str(Path(__file__).parent.parent.parent / "blocklists"))
+    os.environ.get("STILLHEM_PRESET_DIR", str(Path(__file__).parent.parent.parent / "blocklists"))
 )
 
 

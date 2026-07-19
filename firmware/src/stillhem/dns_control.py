@@ -7,10 +7,10 @@ from jinja2 import Environment, FileSystemLoader
 from .blocklist import export_to_file
 
 UNBOUND_CONF_PATH = Path(
-    os.environ.get("ALGORO_UNBOUND_CONF", "/etc/unbound/unbound.conf.d/algoro.conf")
+    os.environ.get("STILLHEM_UNBOUND_CONF", "/etc/unbound/unbound.conf.d/stillhem.conf")
 )
 DEFAULT_TEMPLATE_DIR = Path(
-    os.environ.get("ALGORO_DNS_TEMPLATE_DIR", str(Path(__file__).parent.parent.parent / "dns"))
+    os.environ.get("STILLHEM_DNS_TEMPLATE_DIR", str(Path(__file__).parent.parent.parent / "dns"))
 )
 
 
