@@ -60,4 +60,4 @@ Set your router's primary DNS server to the Pi's IP. The admin UI is then availa
 
 ## License
 
-AGPLv3 — see [LICENSE](LICENSE).
+Copyright (c) 2026 Hugo Linder. Licensed under AGPLv3 — see [LICENSE](LICENSE).
