@@ -1,4 +1,4 @@
-# algoro
+# stillhem
 
 A Raspberry Pi appliance that makes a chosen set of websites unreachable for every device on your home network. DNS-level blocking, set once, enforced always. The admin interface is password-protected — forgetting the password means re-flashing the SD card.
 
@@ -38,13 +38,13 @@ pytest -m "not integration"
 
 ## Installing on a Pi
 
-Clone to `/opt/algoro` and run as root:
+Clone to `/opt/stillhem` and run as root:
 
 ```bash
-bash /opt/algoro/firmware/systemd/install.sh
+bash /opt/stillhem/firmware/systemd/install.sh
 ```
 
-This installs the Python package, initialises the SQLite database, and starts the `algoro-admin` systemd service on port 80.
+This installs the Python package, initialises the SQLite database, and starts the `stillhem-admin` systemd service on port 80.
 
 Set your router's primary DNS server to the Pi's IP. The admin UI is then available at `http://<pi-ip>/`.
 
@@ -52,11 +52,11 @@ Set your router's primary DNS server to the Pi's IP. The admin UI is then availa
 
 | Variable | Default | Description |
 |---|---|---|
-| `ALGORO_DB_PATH` | `/var/lib/algoro/algoro.db` | SQLite database |
-| `ALGORO_BLOCKLIST_PATH` | `/var/lib/algoro/active_blocklist.txt` | Active blocklist file |
-| `ALGORO_UNBOUND_CONF` | `/etc/unbound/unbound.conf.d/algoro.conf` | Generated Unbound config |
-| `ALGORO_DNS_TEMPLATE_DIR` | `firmware/dns` | Jinja2 template directory |
-| `ALGORO_PRESET_DIR` | `firmware/blocklists` | Preset list directory |
+| `STILLHEM_DB_PATH` | `/var/lib/stillhem/stillhem.db` | SQLite database |
+| `STILLHEM_BLOCKLIST_PATH` | `/var/lib/stillhem/active_blocklist.txt` | Active blocklist file |
+| `STILLHEM_UNBOUND_CONF` | `/etc/unbound/unbound.conf.d/stillhem.conf` | Generated Unbound config |
+| `STILLHEM_DNS_TEMPLATE_DIR` | `firmware/dns` | Jinja2 template directory |
+| `STILLHEM_PRESET_DIR` | `firmware/blocklists` | Preset list directory |
 
 ## License
 
