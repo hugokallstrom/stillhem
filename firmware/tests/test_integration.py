@@ -23,7 +23,7 @@ def test_blocked_domain_returns_nxdomain(tmp_path: Path) -> None:
     """
     db_path = tmp_path / "test.db"
     init_db(db_path)
-    add_domain("algoro-integration-test-blocked.invalid", db_path)
+    add_domain("stillhem-integration-test-blocked.invalid", db_path)
 
     blocklist_path = tmp_path / "blocklist.txt"
     export_to_file(db_path, blocklist_path)
@@ -32,7 +32,7 @@ def test_blocked_domain_returns_nxdomain(tmp_path: Path) -> None:
     time.sleep(0.5)  # give Unbound a moment to reload
 
     try:
-        socket.getaddrinfo("algoro-integration-test-blocked.invalid", None)
+        socket.getaddrinfo("stillhem-integration-test-blocked.invalid", None)
         pytest.fail("Expected socket.gaierror (NXDOMAIN) but got a result")
     except socket.gaierror:
         pass  # expected: domain is blocked
