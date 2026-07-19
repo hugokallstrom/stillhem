@@ -3,8 +3,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from algoro.auth import set_password
-from algoro.admin.app import create_app
+from stillhem.auth import set_password
+from stillhem.admin.app import create_app
 
 
 @pytest.fixture
@@ -65,7 +65,7 @@ def test_logout_clears_session(authed_client: TestClient) -> None:
 
 from unittest.mock import patch
 
-from algoro.blocklist import add_domain, list_domains
+from stillhem.blocklist import add_domain, list_domains
 
 
 def test_dashboard_shows_blocked_domain_count(authed_client: TestClient, db_path: Path) -> None:
@@ -83,7 +83,7 @@ def test_add_domain_requires_auth(client: TestClient) -> None:
 
 
 def test_add_domain_when_authenticated(authed_client: TestClient, db_path: Path) -> None:
-    with patch("algoro.admin.routes.blocklist_routes.reload_dns"):
+    with patch("stillhem.admin.routes.blocklist_routes.reload_dns"):
         resp = authed_client.post(
             "/blocklist/add", data={"domain": "reddit.com"}, follow_redirects=True
         )
@@ -94,7 +94,7 @@ def test_add_domain_when_authenticated(authed_client: TestClient, db_path: Path)
 
 def test_remove_domain_when_authenticated(authed_client: TestClient, db_path: Path) -> None:
     add_domain("facebook.com", db_path)
-    with patch("algoro.admin.routes.blocklist_routes.reload_dns"):
+    with patch("stillhem.admin.routes.blocklist_routes.reload_dns"):
         resp = authed_client.post(
             "/blocklist/remove", data={"domain": "facebook.com"}, follow_redirects=True
         )
@@ -104,7 +104,7 @@ def test_remove_domain_when_authenticated(authed_client: TestClient, db_path: Pa
 
 
 def test_add_empty_domain_is_rejected(authed_client: TestClient) -> None:
-    with patch("algoro.admin.routes.blocklist_routes.reload_dns"):
+    with patch("stillhem.admin.routes.blocklist_routes.reload_dns"):
         resp = authed_client.post("/blocklist/add", data={"domain": ""})
     assert resp.status_code in (200, 422)
 

@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from algoro.dns_control import (
+from stillhem.dns_control import (
     generate_unbound_conf,
     is_unbound_running,
     reload_unbound,
@@ -60,16 +60,16 @@ def test_is_unbound_running_false() -> None:
 
 def test_reload_dns_calls_all_three_steps(tmp_path: Path) -> None:
     db_path = tmp_path / "test.db"
-    from algoro.db import init_db
-    from algoro.blocklist import add_domain
+    from stillhem.db import init_db
+    from stillhem.blocklist import add_domain
     init_db(db_path)
     add_domain("reddit.com", db_path)
 
     blocklist_path = tmp_path / "blocklist.txt"
     conf_path = tmp_path / "algoro.conf"
 
-    with patch("algoro.dns_control.is_unbound_running", return_value=True), \
-         patch("algoro.dns_control.reload_unbound") as mock_reload:
+    with patch("stillhem.dns_control.is_unbound_running", return_value=True), \
+         patch("stillhem.dns_control.reload_unbound") as mock_reload:
         reload_dns(db_path, blocklist_path, conf_path, TEMPLATE_DIR)
         mock_reload.assert_called_once()
 
@@ -79,16 +79,16 @@ def test_reload_dns_calls_all_three_steps(tmp_path: Path) -> None:
 
 def test_reload_dns_skips_reload_when_unbound_not_running(tmp_path: Path) -> None:
     db_path = tmp_path / "test.db"
-    from algoro.db import init_db
-    from algoro.blocklist import add_domain
+    from stillhem.db import init_db
+    from stillhem.blocklist import add_domain
     init_db(db_path)
     add_domain("reddit.com", db_path)
 
     blocklist_path = tmp_path / "blocklist.txt"
     conf_path = tmp_path / "algoro.conf"
 
-    with patch("algoro.dns_control.is_unbound_running", return_value=False), \
-         patch("algoro.dns_control.reload_unbound") as mock_reload:
+    with patch("stillhem.dns_control.is_unbound_running", return_value=False), \
+         patch("stillhem.dns_control.reload_unbound") as mock_reload:
         reload_dns(db_path, blocklist_path, conf_path, TEMPLATE_DIR)
         mock_reload.assert_not_called()
 

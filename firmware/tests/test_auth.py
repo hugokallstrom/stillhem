@@ -1,5 +1,5 @@
 from pathlib import Path
-from algoro.auth import (
+from stillhem.auth import (
     hash_password,
     verify_password,
     set_password,

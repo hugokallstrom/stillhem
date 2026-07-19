@@ -3,8 +3,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from algoro.admin.app import create_app
-from algoro.auth import is_password_set
+from stillhem.admin.app import create_app
+from stillhem.auth import is_password_set
 
 
 @pytest.fixture

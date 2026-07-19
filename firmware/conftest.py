@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path
-from algoro.db import init_db
+from stillhem.db import init_db
 
 
 @pytest.fixture

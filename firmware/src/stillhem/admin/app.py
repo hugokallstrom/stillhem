@@ -4,11 +4,11 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from algoro.admin.routes.auth_routes import router as auth_router
-from algoro.admin.routes.blocklist_routes import router as blocklist_router
-from algoro.admin.routes.setup_routes import router as setup_router
-from algoro.blocklist import ACTIVE_BLOCKLIST_PATH
-from algoro.dns_control import DEFAULT_TEMPLATE_DIR, UNBOUND_CONF_PATH
+from stillhem.admin.routes.auth_routes import router as auth_router
+from stillhem.admin.routes.blocklist_routes import router as blocklist_router
+from stillhem.admin.routes.setup_routes import router as setup_router
+from stillhem.blocklist import ACTIVE_BLOCKLIST_PATH
+from stillhem.dns_control import DEFAULT_TEMPLATE_DIR, UNBOUND_CONF_PATH
 
 STATIC_DIR = Path(__file__).parent.parent.parent.parent / "static"
 

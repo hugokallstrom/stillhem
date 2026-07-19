@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "algoro"
+name = "stillhem"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [

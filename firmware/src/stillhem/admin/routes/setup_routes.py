@@ -4,7 +4,7 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from algoro.auth import is_password_set, set_password
+from stillhem.auth import is_password_set, set_password
 
 router = APIRouter()
 templates = Jinja2Templates(

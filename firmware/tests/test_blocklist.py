@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from algoro.blocklist import (
+from stillhem.blocklist import (
     add_domain,
     remove_domain,
     list_domains,
@@ -95,7 +95,7 @@ def test_hard_mode_contains_more_domains_than_social_only(db_path: Path, tmp_pat
     os.environ["ALGORO_PRESET_DIR"] = PRESET_DIR
     db_social = tmp_path / "social.db"
     db_hard = tmp_path / "hard.db"
-    from algoro.db import init_db
+    from stillhem.db import init_db
     init_db(db_social)
     init_db(db_hard)
     social_count = import_preset("social_only", db_social)

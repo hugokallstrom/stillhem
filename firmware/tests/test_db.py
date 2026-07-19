@@ -1,6 +1,6 @@
 import sqlite3
 from pathlib import Path
-from algoro.db import init_db, get_db
+from stillhem.db import init_db, get_db
 
 
 def test_init_db_creates_tables(tmp_path: Path) -> None:

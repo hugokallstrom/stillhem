@@ -5,10 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from algoro.auth import set_password
-from algoro.blocklist import add_domain, export_to_file
-from algoro.db import init_db
-from algoro.dns_control import (
+from stillhem.auth import set_password
+from stillhem.blocklist import add_domain, export_to_file
+from stillhem.db import init_db
+from stillhem.dns_control import (
     DEFAULT_TEMPLATE_DIR,
     UNBOUND_CONF_PATH,
     generate_unbound_conf,

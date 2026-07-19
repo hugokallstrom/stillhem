@@ -3,8 +3,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 
-from algoro.auth import check_password, create_session_token, validate_session_token
-from algoro.admin.deps import require_auth
+from stillhem.auth import check_password, create_session_token, validate_session_token
+from stillhem.admin.deps import require_auth
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent.parent.parent.parent / "templates"))
@@ -33,7 +33,7 @@ def login(request: Request, password: str = Form(...)):
 
 @router.post("/logout")
 def logout(request: Request, _token: str = Depends(require_auth)):
-    from algoro.db import get_db
+    from stillhem.db import get_db
     db_path = request.app.state.db_path
     with get_db(db_path) as conn:
         conn.execute("DELETE FROM config WHERE key = 'session_token'")
