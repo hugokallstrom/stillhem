@@ -1,0 +1,17 @@
+[Unit]
+Description=stillhem Admin Web Interface
+After=network.target unbound.service
+
+[Service]
+ExecStart=/opt/stillhem/venv/bin/uvicorn stillhem.admin.app:app --host 0.0.0.0 --port 8080
+WorkingDirectory=/opt/stillhem/firmware
+Environment="STILLHEM_DB_PATH=/var/lib/stillhem/stillhem.db"
+Environment="STILLHEM_BLOCKLIST_PATH=/var/lib/stillhem/active_blocklist.txt"
+Environment="STILLHEM_UNBOUND_CONF=/etc/unbound/unbound.conf.d/stillhem.conf"
+Environment="STILLHEM_DNS_TEMPLATE_DIR=/opt/stillhem/firmware/dns"
+Environment="STILLHEM_PRESET_DIR=/opt/stillhem/firmware/blocklists"
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target
