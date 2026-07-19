@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Run as root on the Pi. Assumes:
-# - repo is checked out at /opt/algoro
+# - repo is checked out at /opt/stillhem
 # - Python 3.11+, python3-venv, unbound, dnscrypt-proxy are installed
 set -euo pipefail
 
-INSTALL_DIR=/opt/algoro/firmware
-DATA_DIR=/var/lib/algoro
-VENV=/opt/algoro/venv
+INSTALL_DIR=/opt/stillhem/firmware
+DATA_DIR=/var/lib/stillhem
+VENV=/opt/stillhem/venv
 
 echo "==> Creating virtualenv..."
 python3 -m venv "$VENV"
@@ -20,15 +20,15 @@ mkdir -p "$DATA_DIR"
 echo "==> Initialising database..."
 "$VENV/bin/python" -c "
 from pathlib import Path
-from algoro.db import init_db
-init_db(Path('/var/lib/algoro/algoro.db'))
+from stillhem.db import init_db
+init_db(Path('/var/lib/stillhem/stillhem.db'))
 "
 
 echo "==> Installing systemd units..."
-ln -sf "$INSTALL_DIR/systemd/algoro-admin.service" /etc/systemd/system/algoro-admin.service
+ln -sf "$INSTALL_DIR/systemd/stillhem-admin.service" /etc/systemd/system/stillhem-admin.service
 systemctl daemon-reload
-systemctl enable algoro-admin
-systemctl start algoro-admin
+systemctl enable stillhem-admin
+systemctl start stillhem-admin
 
 echo "==> Done. Admin UI running at http://$(hostname -I | awk '{print $1}')"
 echo "    Set your router's DNS server to that IP."
