@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from stillhem.admin.routes.auth_routes import router as auth_router
 from stillhem.admin.routes.blocklist_routes import router as blocklist_router
 from stillhem.admin.routes.setup_routes import router as setup_router
+from stillhem.admin.routes.wizard_routes import router as wizard_router
 from stillhem.blocklist import ACTIVE_BLOCKLIST_PATH
 from stillhem.dns_control import DEFAULT_TEMPLATE_DIR, UNBOUND_CONF_PATH
 
@@ -31,6 +32,19 @@ def create_app(
     app.include_router(auth_router)
     app.include_router(blocklist_router)
     app.include_router(setup_router)
+    app.include_router(wizard_router)
+
+    from fastapi.responses import RedirectResponse
+
+    @app.middleware("http")
+    async def _mode_gate(request, call_next):
+        path = request.url.path
+        if request.app.state.setup_mode:
+            if not (path.startswith("/wizard") or path.startswith("/static")):
+                return RedirectResponse(url="/wizard/wifi", status_code=302)
+        elif path.startswith("/wizard"):
+            return RedirectResponse(url="/", status_code=302)
+        return await call_next(request)
 
     return app
 

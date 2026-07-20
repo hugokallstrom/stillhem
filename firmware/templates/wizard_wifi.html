@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<main>
+  <h1>Connect Stillhem to Wi-Fi</h1>
+  <p>Choose your home network so the device can join it.</p>
+  <form method="post" action="/wizard/wifi">
+    <label for="ssid">Network</label>
+    <select name="ssid" id="ssid">
+      {% for n in networks %}
+      <option value="{{ n.ssid }}">{{ n.ssid }}{% if n.secured %} 🔒{% endif %}</option>
+      {% endfor %}
+      <option value="">Other (type below)</option>
+    </select>
+    <label for="ssid_manual">…or enter a network name</label>
+    <input type="text" id="ssid_manual" name="ssid_manual" placeholder="Network name (optional)">
+    <label for="password">Wi-Fi password</label>
+    <input type="password" id="password" name="password" autocomplete="off">
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+    <button type="submit">Next</button>
+  </form>
+</main>
+{% endblock %}

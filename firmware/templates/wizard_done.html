@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<main>
+  {% if restarting %}
+  <h1>Restarting…</h1>
+  <p>Stillhem is joining <strong>{{ ssid }}</strong>. Reconnect your phone to your normal Wi-Fi. In a minute the admin page will be at <code>http://stillhem.local/</code>.</p>
+  {% else %}
+  <h1>Setup complete</h1>
+  <p>Stillhem will restart and join <strong>{{ ssid }}</strong>. After that, manage it at <code>http://stillhem.local/</code>. You'll still need to point your router's DNS at the device — instructions will be on the admin page.</p>
+  <form method="post" action="/wizard/finish">
+    <button type="submit">Finish &amp; restart</button>
+  </form>
+  {% endif %}
+</main>
+{% endblock %}

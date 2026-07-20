@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<main>
+  <h1>Choose what to block</h1>
+  <form method="post" action="/wizard/preset">
+    {% for p in presets %}
+    <label><input type="radio" name="preset" value="{{ p }}" {% if loop.first %}checked{% endif %}> {{ p }}</label>
+    {% endfor %}
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+    <button type="submit">Next</button>
+  </form>
+</main>
+{% endblock %}
