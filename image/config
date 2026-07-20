@@ -1,0 +1,21 @@
+# pi-gen config for the Stillhem image. Sourced by build-docker.sh.
+IMG_NAME="stillhem"
+RELEASE="bookworm"
+DEPLOY_COMPRESSION="xz"
+COMPRESSION_LEVEL="6"
+TARGET_HOSTNAME="stillhem"
+
+# --- DEV-ONLY convenience credentials/access. ---
+# The same .img ships to every buyer, so a baked-in password is a shared
+# credential. Sub-project 5 (release automation) MUST lock the first user
+# and disable (or set key-only) SSH before any buyer-facing image. Do not
+# ship as-is.
+FIRST_USER_NAME="stillhem"
+FIRST_USER_PASS="stillhem"
+DISABLE_FIRST_BOOT_USER_RENAME="1"
+ENABLE_SSH="1"
+
+LOCALE_DEFAULT="en_US.UTF-8"
+KEYBOARD_KEYMAP="se"
+TIMEZONE_DEFAULT="Europe/Stockholm"
+WPA_COUNTRY="SE"
