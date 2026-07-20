@@ -43,6 +43,27 @@ def is_unbound_running() -> bool:
     return result.stdout.strip() == "active"
 
 
+def total_queries() -> int:
+    """Total queries Unbound has answered (via `unbound-control stats_noreset`).
+    Returns 0 if unbound-control is unavailable or the stat can't be parsed."""
+    try:
+        out = subprocess.run(
+            ["unbound-control", "stats_noreset"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return 0
+    for line in out.splitlines():
+        if line.startswith("total.num.queries="):
+            try:
+                return int(line.split("=", 1)[1])
+            except ValueError:
+                return 0
+    return 0
+
+
 def reload_dns(
     db_path: Path,
     blocklist_path: Path,

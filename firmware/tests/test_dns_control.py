@@ -94,3 +94,25 @@ def test_reload_dns_skips_reload_when_unbound_not_running(tmp_path: Path) -> Non
 
     # Conf is still written so it's picked up when Unbound starts
     assert 'local-zone: "reddit.com." always_nxdomain' in conf_path.read_text()
+
+
+from unittest.mock import MagicMock, patch as _patch
+
+from stillhem.dns_control import total_queries
+
+
+def test_total_queries_parses_stat():
+    out = "thread0.num.queries=5\ntotal.num.queries=1234\ntotal.num.cachehits=9\n"
+    with _patch("subprocess.run", return_value=MagicMock(stdout=out)):
+        assert total_queries() == 1234
+
+
+def test_total_queries_zero_when_line_missing():
+    with _patch("subprocess.run", return_value=MagicMock(stdout="total.num.cachehits=9\n")):
+        assert total_queries() == 0
+
+
+def test_total_queries_zero_on_control_error():
+    import subprocess
+    with _patch("subprocess.run", side_effect=subprocess.CalledProcessError(1, "unbound-control")):
+        assert total_queries() == 0
