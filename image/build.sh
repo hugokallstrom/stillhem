@@ -43,6 +43,15 @@ mkdir -p "$STAGE_DIR/00-install/files"
 git -C "$REPO_ROOT" archive --format=tar HEAD > "$STAGE_DIR/00-install/files/stillhem-src.tar"
 
 # 5. Copy config + stage into pi-gen
+# pi-gen's STAGE_LIST is space-delimited, so a repo path containing a space
+# cannot be expressed in it. Fail early and clearly rather than mid-build.
+case "$PIGEN_DIR" in
+  *" "*)
+    echo "ERROR: repo path contains a space ($PIGEN_DIR)." >&2
+    echo "       pi-gen's STAGE_LIST cannot handle spaces; move the repo to a space-free path." >&2
+    exit 1
+    ;;
+esac
 cp "$IMAGE_DIR/config" "$PIGEN_DIR/config"
 rm -rf "$PIGEN_DIR/stage-stillhem"
 cp -R "$STAGE_DIR" "$PIGEN_DIR/stage-stillhem"
@@ -62,7 +71,15 @@ echo "==> Running pi-gen build-docker.sh (this takes a while)"
 
 # 7. Collect artifact
 mkdir -p "$DEPLOY_DIR"
-SRC_IMG="$(ls -t "$PIGEN_DIR"/deploy/*.img.xz | head -1)"
+shopt -s nullglob
+built_imgs=("$PIGEN_DIR"/deploy/*.img.xz)
+shopt -u nullglob
+if [ "${#built_imgs[@]}" -eq 0 ]; then
+  echo "ERROR: build finished but produced no .img.xz in $PIGEN_DIR/deploy" >&2
+  exit 1
+fi
+# Newest by mtime, in case a previous build left an older artifact behind.
+SRC_IMG="$(ls -t "${built_imgs[@]}" | head -1)"
 DEST_IMG="$DEPLOY_DIR/stillhem-$VERSION.img.xz"
 mv "$SRC_IMG" "$DEST_IMG"
 echo "==> Done: $DEST_IMG ($(du -h "$DEST_IMG" | cut -f1))"
