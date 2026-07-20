@@ -1,9 +1,10 @@
 [Unit]
 Description=stillhem Admin Web Interface
-After=network.target unbound.service
+After=network.target unbound.service stillhem-netmode.service
+Wants=stillhem-netmode.service
 
 [Service]
-ExecStart=/opt/stillhem/venv/bin/uvicorn stillhem.admin.app:app --host 0.0.0.0 --port 8080
+ExecStart=/opt/stillhem/venv/bin/python -m stillhem.launch
 WorkingDirectory=/opt/stillhem/firmware
 Environment="STILLHEM_DB_PATH=/var/lib/stillhem/stillhem.db"
 Environment="STILLHEM_BLOCKLIST_PATH=/var/lib/stillhem/active_blocklist.txt"

@@ -30,5 +30,11 @@ systemctl daemon-reload
 systemctl enable stillhem-admin
 systemctl start stillhem-admin
 
+echo "==> Installing network-mode selector + captive DNS..."
+ln -sf "$INSTALL_DIR/systemd/stillhem-netmode.service" /etc/systemd/system/stillhem-netmode.service
+install -Dm 644 "$INSTALL_DIR/network/dnsmasq-shared.d/stillhem-captive.conf" \
+    /etc/NetworkManager/dnsmasq-shared.d/stillhem-captive.conf
+systemctl enable stillhem-netmode
+
 echo "==> Done. Admin UI running at http://$(hostname -I | awk '{print $1}')"
 echo "    Set your router's DNS server to that IP."

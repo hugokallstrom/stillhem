@@ -1,0 +1,13 @@
+[Unit]
+Description=Stillhem network mode selector (AP setup vs. normal)
+After=NetworkManager.service
+Wants=NetworkManager.service
+Before=stillhem-admin.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/stillhem/venv/bin/python -m stillhem.netmode boot
+
+[Install]
+WantedBy=multi-user.target

@@ -30,3 +30,10 @@ install -m 644 /opt/stillhem/firmware/systemd/stillhem-admin.service \
     /etc/systemd/system/stillhem-admin.service
 systemctl enable stillhem-admin.service
 systemctl enable unbound.service
+
+# Network-mode selector (AP setup vs. normal) + captive DNS for AP mode
+install -m 644 /opt/stillhem/firmware/systemd/stillhem-netmode.service \
+    /etc/systemd/system/stillhem-netmode.service
+install -Dm 644 /opt/stillhem/firmware/network/dnsmasq-shared.d/stillhem-captive.conf \
+    /etc/NetworkManager/dnsmasq-shared.d/stillhem-captive.conf
+systemctl enable stillhem-netmode.service
