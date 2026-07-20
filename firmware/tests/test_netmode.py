@@ -119,3 +119,25 @@ def test_boot_setup_brings_up_ap_and_caches(tmp_path, monkeypatch):
     start.assert_called_once()
     assert netmode.read_mode() == "setup"
     assert netmode.read_cached_scan() == [{"ssid": "X", "signal": 1, "secured": False}]
+
+
+def test_should_enter_setup_false_when_setup_complete(tmp_path, monkeypatch):
+    complete_path = tmp_path / "setup_complete"
+    complete_path.write_text("1")
+    monkeypatch.setattr(netmode, "SETUP_COMPLETE_PATH", complete_path)
+    with patch("subprocess.run") as run:
+        assert netmode.should_enter_setup() is False
+    run.assert_not_called()
+
+
+def test_boot_setup_survives_scan_failure(tmp_path, monkeypatch):
+    monkeypatch.setattr(netmode, "STATE_DIR", tmp_path)
+    monkeypatch.setattr(netmode, "MODE_PATH", tmp_path / "mode")
+    monkeypatch.setattr(netmode, "SCAN_CACHE_PATH", tmp_path / "wifi_scan.json")
+    with patch.object(netmode, "should_enter_setup", return_value=True), \
+         patch.object(netmode, "scan_networks", side_effect=RuntimeError("scan failed")), \
+         patch.object(netmode, "read_cached_scan", return_value=[]), \
+         patch.object(netmode, "start_ap") as start:
+        netmode.boot()
+    start.assert_called_once()
+    assert netmode.read_mode() == "setup"

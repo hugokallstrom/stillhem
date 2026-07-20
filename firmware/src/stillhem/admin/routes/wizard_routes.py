@@ -60,8 +60,9 @@ def wifi_submit(
         return templates.TemplateResponse(
             request, "wizard_wifi.html",
             {"networks": networks, "error": "Please choose or enter a network."}, status_code=200)
-    netmode.save_home_wifi(chosen, password)
-    set_config(request.app.state.db_path, "home_wifi_ssid", chosen)
+    db_path = request.app.state.db_path
+    set_config(db_path, "home_wifi_ssid", chosen)
+    set_config(db_path, "home_wifi_psk", password)
     return RedirectResponse(url="/wizard/preset", status_code=302)
 
 
@@ -125,7 +126,13 @@ def done_page(request: Request):
 
 @router.post("/wizard/finish")
 def finish(request: Request):
-    ssid = get_config(request.app.state.db_path, "home_wifi_ssid") or "your home network"
+    db_path = request.app.state.db_path
+    if _current_step(db_path) != "/wizard/done":
+        return RedirectResponse(url=_current_step(db_path), status_code=302)
+    ssid = get_config(db_path, "home_wifi_ssid") or ""
+    psk = get_config(db_path, "home_wifi_psk") or ""
+    netmode.save_home_wifi(ssid, psk)
+    netmode.mark_setup_complete()
     # Deferred so the HTTP response flushes before the box reboots.
     subprocess.Popen(["systemd-run", "--on-active=3", "systemctl", "reboot"])
     return templates.TemplateResponse(request, "wizard_done.html", {"ssid": ssid, "restarting": True})

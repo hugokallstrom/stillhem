@@ -39,10 +39,12 @@ def create_app(
     @app.middleware("http")
     async def _mode_gate(request, call_next):
         path = request.url.path
+        is_wizard = path == "/wizard" or path.startswith("/wizard/")
+        is_static = path == "/static" or path.startswith("/static/")
         if request.app.state.setup_mode:
-            if not (path.startswith("/wizard") or path.startswith("/static")):
+            if not (is_wizard or is_static):
                 return RedirectResponse(url="/wizard/wifi", status_code=302)
-        elif path.startswith("/wizard"):
+        elif is_wizard:
             return RedirectResponse(url="/", status_code=302)
         return await call_next(request)
 

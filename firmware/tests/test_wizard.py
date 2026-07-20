@@ -43,8 +43,9 @@ def test_wifi_submit_saves_profile_and_advances(setup_client, db_path):
                                  follow_redirects=False)
     assert resp.status_code == 302
     assert resp.headers["location"] == "/wizard/preset"
-    save.assert_called_once_with("HomeNet", "s3cret")
+    save.assert_not_called()
     assert get_config(db_path, "home_wifi_ssid") == "HomeNet"
+    assert get_config(db_path, "home_wifi_psk") == "s3cret"
 
 
 def test_wifi_submit_prefers_manual_ssid(setup_client, db_path):
@@ -54,8 +55,9 @@ def test_wifi_submit_prefers_manual_ssid(setup_client, db_path):
             data={"ssid": "", "ssid_manual": "HiddenNet", "password": "pw"},
             follow_redirects=False)
     assert resp.status_code == 302
-    save.assert_called_once_with("HiddenNet", "pw")
+    save.assert_not_called()
     assert get_config(db_path, "home_wifi_ssid") == "HiddenNet"
+    assert get_config(db_path, "home_wifi_psk") == "pw"
 
 
 def test_wifi_submit_rejects_empty_ssid(setup_client):
@@ -118,12 +120,27 @@ def test_finish_schedules_reboot(setup_client, db_path):
     from stillhem.db import set_config
     from stillhem.auth import set_password
     set_config(db_path, "home_wifi_ssid", "HomeNet")
+    set_config(db_path, "home_wifi_psk", "pw")
     set_config(db_path, "wizard_preset", "social_only")
     set_password("hunter2", db_path)
-    with patch("stillhem.admin.routes.wizard_routes.subprocess.Popen") as popen:
+    with patch("stillhem.admin.routes.wizard_routes.netmode.save_home_wifi") as save, \
+         patch("stillhem.admin.routes.wizard_routes.netmode.mark_setup_complete") as mark, \
+         patch("stillhem.admin.routes.wizard_routes.subprocess.Popen") as popen:
         resp = setup_client.post("/wizard/finish", follow_redirects=False)
+    save.assert_called_once_with("HomeNet", "pw")
+    mark.assert_called_once()
     popen.assert_called_once()
     assert resp.status_code in (200, 302)
+
+
+def test_finish_guard_redirects_when_incomplete(setup_client, db_path):
+    from stillhem.db import set_config
+    set_config(db_path, "home_wifi_ssid", "HomeNet")
+    with patch("stillhem.admin.routes.wizard_routes.subprocess.Popen") as popen:
+        resp = setup_client.post("/wizard/finish", follow_redirects=False)
+    assert resp.status_code == 302
+    assert resp.headers["location"] == "/wizard/preset"
+    popen.assert_not_called()
 
 
 def test_normal_mode_wizard_redirects_home(normal_client):

@@ -10,6 +10,7 @@ WIFI_IFACE = "wlan0"
 STATE_DIR = Path("/var/lib/stillhem")
 MODE_PATH = STATE_DIR / "mode"
 SCAN_CACHE_PATH = STATE_DIR / "wifi_scan.json"
+SETUP_COMPLETE_PATH = STATE_DIR / "setup_complete"
 
 _VALID_MODES = ("setup", "normal")
 
@@ -30,8 +31,19 @@ def home_wifi_configured() -> bool:
     return False
 
 
+def setup_complete() -> bool:
+    return SETUP_COMPLETE_PATH.exists()
+
+
+def mark_setup_complete() -> None:
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    SETUP_COMPLETE_PATH.write_text("1")
+
+
 def should_enter_setup() -> bool:
     """Enter setup only with no home wifi profile AND no other active link."""
+    if setup_complete():
+        return False
     if home_wifi_configured():
         return False
     out = _run(["-t", "-f", "DEVICE,TYPE,STATE", "device", "status"], capture=True).stdout
@@ -114,7 +126,11 @@ def write_mode(mode: str) -> None:
 
 def boot() -> None:
     if should_enter_setup():
-        cache_scan(scan_networks())
+        try:
+            networks = scan_networks()
+        except Exception:
+            networks = read_cached_scan()  # possibly empty; manual SSID entry covers it
+        cache_scan(networks)
         start_ap()
         write_mode("setup")
     else:
