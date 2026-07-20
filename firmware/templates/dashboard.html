@@ -11,7 +11,8 @@
 <p class="status"><span class="status-active">Stillhem is serving your network ✓</span></p>
 {% else %}
 <p class="status"><span class="status-inactive">DNS isn't set up yet</span> —
-  <a href="/router">Set up your router</a> (point it at {{ pi_ip }})</p>
+  <a href="/router">Set up your router</a> (point it at {{ pi_ip }}).
+  <small style="color:#999">If you just changed it, use a device for a moment, then refresh this page.</small></p>
 {% endif %}
 
 <p class="status">
