@@ -18,12 +18,14 @@ def create_app(
     blocklist_path: Path = ACTIVE_BLOCKLIST_PATH,
     unbound_conf_path: Path = UNBOUND_CONF_PATH,
     template_dir: Path = DEFAULT_TEMPLATE_DIR,
+    setup_mode: bool = False,
 ) -> FastAPI:
     app = FastAPI(docs_url=None, redoc_url=None)
     app.state.db_path = db_path
     app.state.blocklist_path = blocklist_path
     app.state.unbound_conf_path = unbound_conf_path
     app.state.template_dir = template_dir
+    app.state.setup_mode = setup_mode
 
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
     app.include_router(auth_router)

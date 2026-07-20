@@ -30,3 +30,18 @@ def test_get_db_returns_row_factory(tmp_path: Path) -> None:
         row = conn.execute("SELECT key, value FROM config").fetchone()
     assert row["key"] == "k"
     assert row["value"] == "v"
+
+
+from stillhem.db import get_config, set_config
+
+
+def test_set_and_get_config(db_path: Path) -> None:
+    assert get_config(db_path, "k") is None
+    set_config(db_path, "k", "v")
+    assert get_config(db_path, "k") == "v"
+
+
+def test_set_config_overwrites(db_path: Path) -> None:
+    set_config(db_path, "k", "v1")
+    set_config(db_path, "k", "v2")
+    assert get_config(db_path, "k") == "v2"
