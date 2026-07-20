@@ -7,6 +7,13 @@
   </form>
 </nav>
 
+{% if serving %}
+<p class="status"><span class="status-active">Stillhem is serving your network ✓</span></p>
+{% else %}
+<p class="status"><span class="status-inactive">DNS isn't set up yet</span> —
+  <a href="/router">Set up your router</a> (point it at {{ pi_ip }})</p>
+{% endif %}
+
 <p class="status">
   Status:
   {% if blocking_active %}

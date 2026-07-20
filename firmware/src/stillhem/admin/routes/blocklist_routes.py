@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -6,12 +7,31 @@ from fastapi.templating import Jinja2Templates
 
 from stillhem.admin.deps import require_auth
 from stillhem.blocklist import add_domain, list_domains, remove_domain
-from stillhem.dns_control import is_unbound_running, reload_dns
+from stillhem.db import get_config, set_config
+from stillhem.dns_control import is_unbound_running, reload_dns, total_queries
+from stillhem.netinfo import primary_ip
+from stillhem.serving import is_serving, queries_per_minute
 
 router = APIRouter()
 templates = Jinja2Templates(
     directory=str(Path(__file__).parent.parent.parent.parent.parent / "templates")
 )
+
+
+def _is_serving(db_path) -> bool:
+    now = time.time()
+    count = total_queries()
+    serving = False
+    prev = get_config(db_path, "serving_sample")
+    if prev:
+        try:
+            prev_ts, prev_count = prev.split(":")
+            qpm = queries_per_minute(float(prev_ts), int(prev_count), now, count)
+            serving = is_serving(qpm)
+        except ValueError:
+            serving = False
+    set_config(db_path, "serving_sample", f"{now}:{count}")
+    return serving
 
 
 def _dashboard_response(request: Request) -> HTMLResponse:
@@ -24,6 +44,8 @@ def _dashboard_response(request: Request) -> HTMLResponse:
             "domains": domains,
             "domain_count": len(domains),
             "blocking_active": is_unbound_running(),
+            "serving": _is_serving(db_path),
+            "pi_ip": primary_ip(),
         },
     )
 

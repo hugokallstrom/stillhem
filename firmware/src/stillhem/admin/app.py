@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from stillhem.admin.routes.auth_routes import router as auth_router
 from stillhem.admin.routes.blocklist_routes import router as blocklist_router
+from stillhem.admin.routes.router_routes import router as router_setup_router
 from stillhem.admin.routes.setup_routes import router as setup_router
 from stillhem.admin.routes.wizard_routes import router as wizard_router
 from stillhem.blocklist import ACTIVE_BLOCKLIST_PATH
@@ -31,6 +32,7 @@ def create_app(
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
     app.include_router(auth_router)
     app.include_router(blocklist_router)
+    app.include_router(router_setup_router)
     app.include_router(setup_router)
     app.include_router(wizard_router)
 
