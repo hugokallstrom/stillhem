@@ -13,6 +13,9 @@
   src: url("/static/fonts/SpaceGrotesk-Bold.woff2") format("woff2"); }
 
 :root {
+  /* Pin to a light rendering so browsers / phone captive-portal webviews
+     with forced ("auto") dark mode don't invert the page into black-on-black. */
+  color-scheme: light;
   --bg: #fafaf9;
   --surface: #ffffff;
   --ink: #18181b;
