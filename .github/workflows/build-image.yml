@@ -35,8 +35,17 @@ jobs:
           sudo docker image prune -af || true
           echo "after:"; df -h / | tail -1
 
-      # Registers qemu binfmt handlers so the runner can execute ARM binaries.
-      - uses: docker/setup-qemu-action@v3
+      # pi-gen's build-docker.sh resolves the interpreter with
+      # `which qemu-arm-static` and registers binfmt_misc against that host
+      # path itself, so the actual static binaries must be installed on the
+      # runner. docker/setup-qemu-action is not enough: it registers handlers
+      # from a container without putting the binaries on PATH.
+      - name: Install qemu-user-static + binfmt
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-user-static binfmt-support
+          sudo update-binfmts --enable || true
+          which qemu-arm-static qemu-aarch64-static
 
       - name: Build image
         env:
