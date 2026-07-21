@@ -3,8 +3,13 @@
 set -euo pipefail
 
 PIGEN_REPO="https://github.com/RPi-Distro/pi-gen.git"
-PIGEN_BRANCH="arm64"
-PIGEN_COMMIT="ca8aeed0ae300c2a89f55ce9617d5f96a27e99e5"
+# Branch must match RELEASE in image/config: each pi-gen branch bootstraps a
+# specific Debian release (stage0/prerun.sh warns on a mismatch, then fails
+# later with NO_PUBKEY because the rootfs keyring is for the other release).
+# bookworm-arm64 = 64-bit + bookworm; the `arm64` branch targets trixie.
+PIGEN_BRANCH="bookworm-arm64"
+PIGEN_COMMIT="d7a31c6aa09f4b867902c51da2b45807c0a1709e"
+PIGEN_RELEASE="bookworm"  # must equal RELEASE in image/config
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 IMAGE_DIR="$REPO_ROOT/image"
@@ -26,6 +31,17 @@ if [ "${ALLOW_DIRTY:-0}" != "1" ]; then
     echo "ERROR: working tree is dirty. Commit changes first, or set ALLOW_DIRTY=1." >&2
     exit 1
   fi
+fi
+
+# 2b. Branch/release agreement. pi-gen only *warns* on a mismatch and then dies
+# ~20 minutes later with an opaque NO_PUBKEY error, so fail loudly up front.
+CONFIG_RELEASE="$(grep -E '^RELEASE=' "$IMAGE_DIR/config" | head -1 | sed -E 's/RELEASE="?([^"]*)"?/\1/')"
+if [ "$CONFIG_RELEASE" != "$PIGEN_RELEASE" ]; then
+  echo "ERROR: image/config RELEASE='$CONFIG_RELEASE' but pi-gen branch" >&2
+  echo "       '$PIGEN_BRANCH' bootstraps '$PIGEN_RELEASE'." >&2
+  echo "       Use the pi-gen branch matching the release (e.g. bookworm-arm64" >&2
+  echo "       for bookworm, arm64 for trixie), or change RELEASE to match." >&2
+  exit 1
 fi
 
 # 3. Clone + pin pi-gen
