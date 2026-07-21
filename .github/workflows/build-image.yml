@@ -1,0 +1,70 @@
+name: Build image
+
+# pi-gen needs an x86_64 host: its armhf path runs `setarch linux32`, which
+# requests a 32-bit ARM personality that Apple Silicon cannot provide. GitHub's
+# ubuntu runners are x86_64, so both arches build here.
+on:
+  workflow_dispatch:
+    inputs:
+      arch:
+        description: "Target architecture"
+        type: choice
+        options: [arm64, armhf]
+        default: arm64
+      variant:
+        description: "release = hardened (publishable) | dev = SSH + known password"
+        type: choice
+        options: [release, dev]
+        default: release
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      # Runners ship with ~14 GB free on /, but pi-gen needs ~10 GB+ for the
+      # rootfs and image. Drop preinstalled toolchains we never use.
+      - name: Free disk space
+        run: |
+          echo "before:"; df -h / | tail -1
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /usr/local/share/boost /opt/hostedtoolcache/CodeQL \
+                      /usr/share/swift /usr/local/.ghcup
+          sudo docker image prune -af || true
+          echo "after:"; df -h / | tail -1
+
+      # Registers qemu binfmt handlers so the runner can execute ARM binaries.
+      - uses: docker/setup-qemu-action@v3
+
+      - name: Build image
+        env:
+          PIGEN_ARCH: ${{ inputs.arch }}
+          PIGEN_VARIANT: ${{ inputs.variant }}
+        run: bash image/build.sh
+
+      - name: Summarise artifact
+        run: |
+          ls -lh image/deploy/
+          {
+            echo "### Image built"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Arch | \`${{ inputs.arch }}\` |"
+            echo "| Variant | \`${{ inputs.variant }}\` |"
+            echo "| File | \`$(basename image/deploy/*.img.xz)\` |"
+            echo "| Size | $(du -h image/deploy/*.img.xz | cut -f1) |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ inputs.variant }}" = "dev" ]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "> **Dev build — SSH enabled with a known password. Do not publish.**" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stillhem-${{ inputs.arch }}-${{ inputs.variant }}
+          path: image/deploy/*.img.xz
+          retention-days: 14
+          compression-level: 0 # already xz-compressed

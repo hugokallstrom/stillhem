@@ -10,6 +10,15 @@ PIGEN_REPO="https://github.com/RPi-Distro/pi-gen.git"
 # older hardware. Override with: PIGEN_ARCH=armhf bash image/build.sh
 PIGEN_ARCH="${PIGEN_ARCH:-arm64}"
 
+# Build variant. 'release' uses the hardened defaults in image/config (locked
+# account, SSH off) and is what may be published. 'dev' re-enables SSH with a
+# known password for local debugging — never publish a dev image.
+PIGEN_VARIANT="${PIGEN_VARIANT:-release}"
+case "$PIGEN_VARIANT" in
+  release|dev) ;;
+  *) echo "ERROR: PIGEN_VARIANT must be 'release' or 'dev' (got '$PIGEN_VARIANT')." >&2; exit 1 ;;
+esac
+
 # The pi-gen branch must match RELEASE in image/config: each branch bootstraps
 # one Debian release (stage0/prerun.sh only *warns* on a mismatch, then the
 # build dies later with NO_PUBKEY because the rootfs keyring is for the other
@@ -98,6 +107,16 @@ touch "$PIGEN_DIR/stage2/SKIP_IMAGES"
 # host absolute path here would not resolve.
 echo 'STAGE_LIST="stage0 stage1 stage2 stage-stillhem"' >> "$PIGEN_DIR/config"
 
+# Dev variant: re-enable shell access on top of the hardened defaults. These
+# are appended after the committed config so they override it.
+if [ "$PIGEN_VARIANT" = "dev" ]; then
+  echo "==> DEV variant: enabling SSH and a known password — DO NOT PUBLISH"
+  {
+    echo 'FIRST_USER_PASS="stillhem"'
+    echo 'ENABLE_SSH="1"'
+  } >> "$PIGEN_DIR/config"
+fi
+
 if [ "${DRY_RUN:-0}" = "1" ]; then
   echo "==> DRY_RUN=1: prepared pi-gen at $PIGEN_DIR, skipping build-docker.sh"
   exit 0
@@ -119,7 +138,10 @@ fi
 # Newest by mtime, in case a previous build left an older artifact behind.
 SRC_IMG="$(ls -t "${built_imgs[@]}" | head -1)"
 # Arch in the name so a 32-bit test image can't be mistaken for (or overwrite)
-# the 64-bit shipping image.
-DEST_IMG="$DEPLOY_DIR/stillhem-$VERSION-$PIGEN_ARCH.img.xz"
+# the 64-bit shipping image. Dev builds are suffixed so an image with SSH and a
+# known password can never be mistaken for a release artifact.
+SUFFIX=""
+[ "$PIGEN_VARIANT" = "dev" ] && SUFFIX="-dev"
+DEST_IMG="$DEPLOY_DIR/stillhem-$VERSION-$PIGEN_ARCH$SUFFIX.img.xz"
 mv "$SRC_IMG" "$DEST_IMG"
 echo "==> Done: $DEST_IMG ($(du -h "$DEST_IMG" | cut -f1))"
