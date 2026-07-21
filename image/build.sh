@@ -74,7 +74,10 @@ cp -R "$STAGE_DIR" "$PIGEN_DIR/stage-stillhem"
 # Suppress stage2's own image export so only the Stillhem image is produced
 touch "$PIGEN_DIR/stage2/SKIP_IMAGES"
 # Select stages: Lite base + our stage
-echo 'STAGE_LIST="stage0 stage1 stage2 '"$PIGEN_DIR"'/stage-stillhem"' >> "$PIGEN_DIR/config"
+# Stage names are relative to the pi-gen root: the build runs as `cd /pi-gen`
+# inside the container (the dir is baked into the image, not bind-mounted), so a
+# host absolute path here would not resolve.
+echo 'STAGE_LIST="stage0 stage1 stage2 stage-stillhem"' >> "$PIGEN_DIR/config"
 
 if [ "${DRY_RUN:-0}" = "1" ]; then
   echo "==> DRY_RUN=1: prepared pi-gen at $PIGEN_DIR, skipping build-docker.sh"
