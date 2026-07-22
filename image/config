@@ -6,16 +6,24 @@ COMPRESSION_LEVEL="6"
 TARGET_HOSTNAME="stillhem"
 
 # --- Hardened defaults (this is what ships). ---
-# The same .img goes to every buyer, so a baked-in password would be a
-# credential shared across every device in the field. FIRST_USER_PASS is
-# deliberately left UNSET, which makes pi-gen lock the account (no password
-# login), and SSH is off. The appliance needs neither: it is administered
-# entirely through the web UI, and the buyer sets their own admin password in
-# the first-boot wizard.
+# The security-relevant control here is ENABLE_SSH="0": with SSH off there is
+# no remote login path, so the baked OS password below is NOT a remotely
+# reachable shared credential. It is reachable only from a physical console
+# (UART / HDMI+keyboard) — and anyone with that much physical access can read
+# the SD card directly, so a console password adds no real protection either
+# way. The actual remote admin boundary is the web UI password, which the buyer
+# sets themselves in the first-boot wizard.
 #
-# For local debugging, build with PIGEN_VARIANT=dev, which re-enables SSH and
-# sets a known password. Never publish a dev image.
+# A headless appliance must set DISABLE_FIRST_BOOT_USER_RENAME=1 (otherwise the
+# first boot blocks on interactive user creation that never completes with no
+# keyboard), and pi-gen requires FIRST_USER_PASS whenever that flag is set
+# (build.sh refuses the build otherwise). So the password is mandatory, not a
+# choice.
+#
+# For local debugging, build with PIGEN_VARIANT=dev, which turns SSH back on.
+# Never publish a dev image.
 FIRST_USER_NAME="stillhem"
+FIRST_USER_PASS="stillhem"
 DISABLE_FIRST_BOOT_USER_RENAME="1"
 ENABLE_SSH="0"
 

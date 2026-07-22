@@ -107,14 +107,12 @@ touch "$PIGEN_DIR/stage2/SKIP_IMAGES"
 # host absolute path here would not resolve.
 echo 'STAGE_LIST="stage0 stage1 stage2 stage-stillhem"' >> "$PIGEN_DIR/config"
 
-# Dev variant: re-enable shell access on top of the hardened defaults. These
-# are appended after the committed config so they override it.
+# Dev variant: turn SSH back on for shell access. Appended after the committed
+# config so it overrides ENABLE_SSH="0". (The console password is already set
+# in image/config — required by pi-gen for a headless image regardless.)
 if [ "$PIGEN_VARIANT" = "dev" ]; then
-  echo "==> DEV variant: enabling SSH and a known password — DO NOT PUBLISH"
-  {
-    echo 'FIRST_USER_PASS="stillhem"'
-    echo 'ENABLE_SSH="1"'
-  } >> "$PIGEN_DIR/config"
+  echo "==> DEV variant: enabling SSH — DO NOT PUBLISH"
+  echo 'ENABLE_SSH="1"' >> "$PIGEN_DIR/config"
 fi
 
 if [ "${DRY_RUN:-0}" = "1" ]; then
