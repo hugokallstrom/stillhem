@@ -4,6 +4,8 @@ name: Build image
 # requests a 32-bit ARM personality that Apple Silicon cannot provide. GitHub's
 # ubuntu runners are x86_64, so both arches build here.
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       arch:
@@ -49,8 +51,8 @@ jobs:
 
       - name: Build image
         env:
-          PIGEN_ARCH: ${{ inputs.arch }}
-          PIGEN_VARIANT: ${{ inputs.variant }}
+          PIGEN_ARCH: ${{ inputs.arch || 'arm64' }}
+          PIGEN_VARIANT: ${{ inputs.variant || 'release' }}
         run: bash image/build.sh
 
       - name: Summarise artifact
@@ -61,19 +63,19 @@ jobs:
             echo ""
             echo "| | |"
             echo "|---|---|"
-            echo "| Arch | \`${{ inputs.arch }}\` |"
-            echo "| Variant | \`${{ inputs.variant }}\` |"
+            echo "| Arch | \`${{ inputs.arch || 'arm64' }}\` |"
+            echo "| Variant | \`${{ inputs.variant || 'release' }}\` |"
             echo "| File | \`$(basename image/deploy/*.img.xz)\` |"
             echo "| Size | $(du -h image/deploy/*.img.xz | cut -f1) |"
           } >> "$GITHUB_STEP_SUMMARY"
-          if [ "${{ inputs.variant }}" = "dev" ]; then
+          if [ "${{ inputs.variant || 'release' }}" = "dev" ]; then
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "> **Dev build — SSH enabled with a known password. Do not publish.**" >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - uses: actions/upload-artifact@v4
         with:
-          name: stillhem-${{ inputs.arch }}-${{ inputs.variant }}
+          name: stillhem-${{ inputs.arch || 'arm64' }}-${{ inputs.variant || 'release' }}
           path: image/deploy/*.img.xz
           retention-days: 14
           compression-level: 0 # already xz-compressed
