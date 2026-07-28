@@ -41,6 +41,16 @@ def test_should_enter_setup_true_when_nothing_connected():
         assert netmode.should_enter_setup() is True
 
 
+def test_should_enter_setup_true_when_no_wifi_device():
+    # Ethernet-only hardware (e.g. Pi B+): Ethernet being up must not suppress setup.
+    def fake_run(args, **kw):
+        if "connection" in args:
+            return _completed("")  # no profiles
+        return _completed("eth0:ethernet:connected\n")  # no wlan0 at all
+    with patch("subprocess.run", side_effect=fake_run):
+        assert netmode.should_enter_setup() is True
+
+
 def test_scan_networks_parses_dedupes_and_sorts():
     out = "\n".join([
         "42:WPA2:HomeNet",

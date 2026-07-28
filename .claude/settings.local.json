@@ -10,7 +10,15 @@
       "Read(//private/tmp/slopstop-dev/**)",
       "Bash(.venv/bin/pytest tests/test_setup.py::test_get_setup_renders_form_when_no_password -v)",
       "Bash(.venv/bin/pytest tests/test_setup.py -v)",
-      "Bash(.venv/bin/pytest -m \"not integration\")"
+      "Bash(.venv/bin/pytest -m \"not integration\")",
+      "Bash(git -C /Users/hugolinder/slopstop merge origin/main --allow-unrelated-histories -m \"Merge initial LICENSE from remote\")",
+      "Bash(git -C /Users/hugolinder/slopstop push origin main)",
+      "Bash(.venv/bin/python -m pytest tests/test_setup.py -v)",
+      "Bash(.venv/bin/python *)",
+      "Bash(git -C /Users/hugolinder/slopstop add firmware/systemd/install.sh firmware/systemd/algoro-admin.service)",
+      "Bash(git -C /Users/hugolinder/slopstop commit -m ' *)",
+      "Bash(git -C /Users/hugolinder/slopstop add firmware/src/algoro/admin/app.py)",
+      "Bash(git -C /Users/hugolinder/slopstop add firmware/systemd/install.sh)"
     ]
   }
 }

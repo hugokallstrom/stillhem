@@ -40,12 +40,26 @@ def mark_setup_complete() -> None:
     SETUP_COMPLETE_PATH.write_text("1")
 
 
+def has_wifi_device() -> bool:
+    out = _run(["-t", "-f", "DEVICE,TYPE", "device", "status"], capture=True).stdout
+    return any(
+        len(line.split(":")) >= 2 and line.split(":")[1] == "wifi"
+        for line in out.splitlines()
+    )
+
+
 def should_enter_setup() -> bool:
-    """Enter setup only with no home wifi profile AND no other active link."""
+    """Enter setup only with no home wifi profile AND no other active link.
+
+    Ethernet suppression is skipped when no wifi device exists — on Ethernet-only
+    hardware (e.g. Pi B+) the wizard is the only way to configure the device.
+    """
     if setup_complete():
         return False
     if home_wifi_configured():
         return False
+    if not has_wifi_device():
+        return True
     out = _run(["-t", "-f", "DEVICE,TYPE,STATE", "device", "status"], capture=True).stdout
     for line in out.splitlines():
         parts = line.split(":")
