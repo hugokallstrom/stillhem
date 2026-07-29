@@ -2,14 +2,8 @@ name: firmware-tests
 
 on:
   pull_request:
-    paths:
-      - "firmware/**"
-      - ".github/workflows/test.yml"
   push:
     branches: [main]
-    paths:
-      - "firmware/**"
-      - ".github/workflows/test.yml"
 
 jobs:
   firmware-tests:

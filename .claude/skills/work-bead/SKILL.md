@@ -34,17 +34,23 @@ step is the only human-free gate before `main` — do not skip or soften it.
 ### 3. Review (the gate)
 - Dispatch a FRESH review subagent using superpowers:requesting-code-review, giving it
   the diff and the bead's acceptance criteria.
-- Address every finding, then re-run the suite. Do not proceed until the reviewer's
-  concerns are resolved and tests are green again.
+- Address every finding, then re-run the suite.
+- Re-dispatch the review subagent on the POST-FIX diff. Do not proceed to step 4 until a
+  review pass returns no unaddressed Critical/Important findings AND tests are green.
 
 ### 4. Push & integrate
-- Commit with a conventional message referencing the bead.
+- Commit with a conventional message referencing the bead; PR title `<type>: <summary> (bd-<id>)`.
 - `git push -u origin bd-<id>-<slug>`.
 - Open a PR whose body has exactly **Why** and **What** sections (~25 lines), ending
   with the Claude Code footer. Use `gh pr create`.
-- Enable auto-merge: `gh pr merge --auto --squash`.
+- Verify the merge gate exists BEFORE arming auto-merge:
+  `gh api repos/{owner}/{repo}/branches/main/protection/required_status_checks --jq '.contexts'`
+  - If `firmware-tests` is in the output: arm auto-merge with `gh pr merge --auto --squash`.
+  - If it is NOT (or the call errors because protection is unset): do NOT arm auto-merge.
+    Report "human merge required — firmware-tests is not a required check on main" and leave
+    the PR for a human to merge.
 - `bd close <id>`.
-- Report the PR URL and that auto-merge is armed.
+- Report the PR URL and the merge state (auto-merge armed vs. human merge required).
 
 ## Guardrails
 - Never merge without the review step passing and tests green.
