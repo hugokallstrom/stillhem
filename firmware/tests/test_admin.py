@@ -137,3 +137,73 @@ def test_dashboard_hides_router_link_when_serving(authed_client: TestClient, db_
         resp = authed_client.get("/")
     assert resp.status_code == 200
     assert "Blocking" in resp.text
+
+
+# ── /schedule/set ─────────────────────────────────────────────────────────────
+
+from stillhem.blocklist import get_schedule
+
+
+def test_schedule_set_requires_auth(client: TestClient) -> None:
+    resp = client.post(
+        "/schedule/set",
+        data={"category": "social", "days": "5,6", "start": "09:00", "end": "22:00"},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 302
+
+
+def test_schedule_set_persists_and_redirects(authed_client: TestClient, db_path: Path) -> None:
+    with patch("stillhem.admin.routes.blocklist_routes.reload_dns"):
+        resp = authed_client.post(
+            "/schedule/set",
+            data={"category": "social", "days": "5,6", "start": "09:00", "end": "22:00"},
+            follow_redirects=False,
+        )
+    assert resp.status_code == 302
+    assert get_schedule(db_path, "social") == {"days": "5,6", "start_min": 540, "end_min": 1320}
+
+
+def test_schedule_set_empty_days_clears(authed_client: TestClient, db_path: Path) -> None:
+    from stillhem.blocklist import set_schedule
+    set_schedule(db_path, "social", [0], 100, 200)
+    with patch("stillhem.admin.routes.blocklist_routes.reload_dns"):
+        resp = authed_client.post(
+            "/schedule/set",
+            data={"category": "social", "days": "", "start": "09:00", "end": "22:00"},
+            follow_redirects=False,
+        )
+    assert resp.status_code == 302
+    assert get_schedule(db_path, "social") is None
+
+
+def test_schedule_set_invalid_time_does_not_persist(authed_client: TestClient, db_path: Path) -> None:
+    with patch("stillhem.admin.routes.blocklist_routes.reload_dns"):
+        resp = authed_client.post(
+            "/schedule/set",
+            data={"category": "social", "days": "0", "start": "25:00", "end": "22:00"},
+            follow_redirects=False,
+        )
+    assert resp.status_code == 302
+    assert get_schedule(db_path, "social") is None
+
+
+def test_schedule_set_equal_times_rejected(authed_client: TestClient, db_path: Path) -> None:
+    with patch("stillhem.admin.routes.blocklist_routes.reload_dns"):
+        authed_client.post(
+            "/schedule/set",
+            data={"category": "social", "days": "0", "start": "09:00", "end": "09:00"},
+            follow_redirects=False,
+        )
+    assert get_schedule(db_path, "social") is None
+
+
+def test_schedule_set_unknown_category_ignored(authed_client: TestClient, db_path: Path) -> None:
+    with patch("stillhem.admin.routes.blocklist_routes.reload_dns"):
+        resp = authed_client.post(
+            "/schedule/set",
+            data={"category": "bogus", "days": "0", "start": "09:00", "end": "22:00"},
+            follow_redirects=False,
+        )
+    assert resp.status_code == 302
+    assert get_schedule(db_path, "bogus") is None

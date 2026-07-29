@@ -1,5 +1,6 @@
 import os
 import subprocess
+from datetime import datetime
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
@@ -69,8 +70,18 @@ def reload_dns(
     blocklist_path: Path,
     unbound_conf_path: Path = UNBOUND_CONF_PATH,
     template_dir: Path = DEFAULT_TEMPLATE_DIR,
-) -> None:
-    export_to_file(db_path, blocklist_path)
+    now: datetime | None = None,
+) -> bool:
+    """Recompute the effective blocklist and reload Unbound only if it changed.
+
+    The 1-minute reconcile timer calls this every minute, so it must not bounce
+    Unbound when nothing changed. Returns True iff a reload happened. `now` is
+    forwarded to `export_to_file` so callers/tests can inject a fixed clock.
+    """
+    changed = export_to_file(db_path, blocklist_path, now=now)
+    if not changed:
+        return False
     generate_unbound_conf(blocklist_path, unbound_conf_path, template_dir)
     if is_unbound_running():
         reload_unbound()
+    return True

@@ -463,3 +463,74 @@ details p { margin: .1rem 0 .75rem; color: var(--muted); font-size: .92rem; }
     margin: 0;
   }
 }
+
+/* ── Allow-schedule ── */
+.badge.allowed-now {
+  background: #1b7f3b;
+  color: #fff;
+  margin-left: .5rem;
+}
+.schedule {
+  border-top: 1px solid var(--border);
+  padding: .75rem 1.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem;
+  font-size: .83rem;
+}
+.schedule .schedule-summary { color: var(--ink); }
+.schedule .schedule-summary.muted,
+.schedule .schedule-tz { color: var(--muted); }
+.schedule .schedule-tz { flex-basis: 100%; font-size: .75rem; }
+.schedule .sched-edit,
+.schedule .sched-clear {
+  font-family: "Schibsted Grotesk", sans-serif;
+  font-size: .8rem;
+  padding: .25rem .6rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--muted);
+  cursor: pointer;
+}
+.schedule .sched-edit:hover,
+.schedule .sched-clear:hover { background: var(--muted-bg); color: var(--ink); }
+.sched-editor {
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+  width: 100%;
+}
+.sched-editor .sched-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+}
+.sched-editor .sched-days label {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  font-size: .8rem;
+  color: var(--ink);
+}
+.sched-editor .sched-times { display: flex; align-items: center; gap: .4rem; }
+.sched-editor input[type="time"] {
+  padding: .35rem .5rem;
+  font-family: "Schibsted Grotesk", sans-serif;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--ink);
+}
+.sched-editor .sched-actions { display: flex; gap: .5rem; }
+.sched-editor .sched-clear2 {
+  font-family: "Schibsted Grotesk", sans-serif;
+  font-size: .8rem;
+  padding: .35rem .7rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--muted);
+  cursor: pointer;
+}

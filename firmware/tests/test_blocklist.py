@@ -1,5 +1,6 @@
 import os
 import sqlite3
+from datetime import datetime
 from pathlib import Path
 from stillhem.blocklist import (
     add_domain,
@@ -11,6 +12,10 @@ from stillhem.blocklist import (
     get_categories,
     list_platforms,
     toggle_platform,
+    get_schedule,
+    set_schedule,
+    clear_schedule,
+    load_schedules,
 )
 
 PRESET_DIR = str(Path(__file__).parent.parent / "blocklists")
@@ -243,3 +248,123 @@ def test_remove_seeded_domain_does_not_remove_platform(db_path: Path) -> None:
     remove_domain("cdninstagram.com", db_path)
     platform_names = {p["name"] for p in list_platforms(db_path)}
     assert "instagram" in platform_names
+
+
+# ── schedule data-access helpers ──────────────────────────────────────────────
+
+# 2026-07-27 is a Monday (weekday 0).
+MON_NOON = datetime(2026, 7, 27, 12, 0)
+MON_MIDNIGHT = datetime(2026, 7, 27, 0, 30)
+
+
+def test_set_and_get_schedule_round_trip(db_path: Path) -> None:
+    set_schedule(db_path, "social", [5, 6], 540, 1320)
+    row = get_schedule(db_path, "social")
+    assert row == {"days": "5,6", "start_min": 540, "end_min": 1320}
+
+
+def test_get_schedule_none_when_absent(db_path: Path) -> None:
+    assert get_schedule(db_path, "video") is None
+
+
+def test_set_schedule_upserts(db_path: Path) -> None:
+    set_schedule(db_path, "social", [0], 100, 200)
+    set_schedule(db_path, "social", [1, 2], 300, 400)
+    assert get_schedule(db_path, "social") == {"days": "1,2", "start_min": 300, "end_min": 400}
+
+
+def test_load_schedules_returns_mapping(db_path: Path) -> None:
+    set_schedule(db_path, "social", [5, 6], 540, 1320)
+    set_schedule(db_path, "video", [0], 60, 120)
+    scheds = load_schedules(db_path)
+    assert set(scheds) == {"social", "video"}
+    assert scheds["social"]["start_min"] == 540
+
+
+def test_clear_schedule_removes_row(db_path: Path) -> None:
+    set_schedule(db_path, "social", [0], 100, 200)
+    clear_schedule(db_path, "social")
+    assert get_schedule(db_path, "social") is None
+
+
+def test_load_schedules_tolerates_missing_table(tmp_path: Path) -> None:
+    db = _bare_db(tmp_path)  # no category_schedules table
+    assert load_schedules(db) == {}
+
+
+def test_get_schedule_tolerates_missing_table(tmp_path: Path) -> None:
+    db = _bare_db(tmp_path)
+    assert get_schedule(db, "social") is None
+
+
+# ── schedule-aware export_to_file ─────────────────────────────────────────────
+
+def test_export_drops_active_category(db_path: Path, tmp_path: Path) -> None:
+    # Social allowed Monday 09:00-22:00; at noon Monday the social domains drop out.
+    set_schedule(db_path, "social", [0], 540, 1320)
+    out = tmp_path / "blocklist.txt"
+    export_to_file(db_path, out, now=MON_NOON)
+    lines = out.read_text().splitlines()
+    assert "instagram.com" not in lines
+    assert "tiktok.com" not in lines
+    # video is unaffected
+    assert "youtube.com" in lines
+
+
+def test_export_active_window_overrides_platform_toggle(db_path: Path, tmp_path: Path) -> None:
+    # Even with the platform explicitly enabled (default), the active window unblocks it.
+    set_schedule(db_path, "social", [0], 540, 1320)
+    out = tmp_path / "blocklist.txt"
+    export_to_file(db_path, out, now=MON_NOON)
+    assert "instagram.com" not in out.read_text().splitlines()
+
+
+def test_export_toggle_governs_outside_window(db_path: Path, tmp_path: Path) -> None:
+    # Same schedule, but evaluated outside the window -> per-platform toggle rules.
+    set_schedule(db_path, "social", [0], 540, 1320)
+    out = tmp_path / "blocklist.txt"
+    export_to_file(db_path, out, now=MON_MIDNIGHT)  # 00:30, before window
+    lines = out.read_text().splitlines()
+    assert "instagram.com" in lines  # blocked again outside window
+    toggle_platform("instagram", db_path)  # disable it
+    export_to_file(db_path, out, now=MON_MIDNIGHT)
+    assert "instagram.com" not in out.read_text().splitlines()
+
+
+def test_export_null_platform_domains_unaffected_by_schedule(tmp_path: Path) -> None:
+    db = tmp_path / "sched.db"
+    from stillhem.db import init_db
+    init_db(db)
+    add_domain("legacy.com", db)  # platform IS NULL
+    set_schedule(db, "social", [0], 540, 1320)
+    out = tmp_path / "blocklist.txt"
+    export_to_file(db, out, now=MON_NOON)
+    assert "legacy.com" in out.read_text().splitlines()
+
+
+def test_export_returns_false_on_noop(db_path: Path, tmp_path: Path) -> None:
+    out = tmp_path / "blocklist.txt"
+    assert export_to_file(db_path, out, now=MON_MIDNIGHT) is True   # first write
+    assert export_to_file(db_path, out, now=MON_MIDNIGHT) is False  # unchanged
+
+
+def test_export_returns_true_when_window_flips(db_path: Path, tmp_path: Path) -> None:
+    set_schedule(db_path, "social", [0], 540, 1320)
+    out = tmp_path / "blocklist.txt"
+    export_to_file(db_path, out, now=MON_MIDNIGHT)  # outside window
+    # Crossing into the window changes the file -> True
+    assert export_to_file(db_path, out, now=MON_NOON) is True
+
+
+# ── get_categories schedule feed ──────────────────────────────────────────────
+
+def test_get_categories_carries_schedule_keys(db_path: Path) -> None:
+    cats = {c["name"]: c for c in get_categories(db_path)}
+    assert cats["social"]["schedule"] is None
+    assert cats["social"]["active_now"] is False
+
+
+def test_get_categories_reflects_set_schedule(db_path: Path) -> None:
+    set_schedule(db_path, "social", [5, 6], 540, 1320)
+    cats = {c["name"]: c for c in get_categories(db_path)}
+    assert cats["social"]["schedule"] == {"days": "5,6", "start_min": 540, "end_min": 1320}

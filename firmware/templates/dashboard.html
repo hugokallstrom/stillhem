@@ -18,6 +18,7 @@
 <div class="card {{ cat.name }}">
   <div class="card-head">
     <span class="card-title">{{ cat.label }}</span>
+    {% if cat.active_now %}<span class="badge allowed-now">Allowed now</span>{% endif %}
     <span class="card-count">{{ cat.blocked_count }} of {{ cat.total_count }} blocked</span>
   </div>
 
@@ -51,6 +52,26 @@
   {% endfor %}
 
   <button class="add-btn" aria-label="Add a site to {{ cat.label }}">+ Add site</button>
+
+  {% set day_labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] %}
+  <div class="schedule" data-category="{{ cat.name }}"
+       data-days="{{ cat.schedule.days if cat.schedule else '' }}"
+       data-start="{{ '%02d:%02d'|format(cat.schedule.start_min // 60, cat.schedule.start_min % 60) if cat.schedule else '09:00' }}"
+       data-end="{{ '%02d:%02d'|format(cat.schedule.end_min // 60, cat.schedule.end_min % 60) if cat.schedule else '22:00' }}">
+    {% if cat.schedule %}
+      {% set sd = cat.schedule.days.split(",") | select("!=", "") | map("int") | list %}
+      <span class="schedule-summary">Allowed
+        {% for d in sd %}{{ day_labels[d] }}{% if not loop.last %}, {% endif %}{% endfor %}
+        · {{ "%02d:%02d"|format(cat.schedule.start_min // 60, cat.schedule.start_min % 60) }}–{{ "%02d:%02d"|format(cat.schedule.end_min // 60, cat.schedule.end_min % 60) }}
+      </span>
+      <button class="sched-edit" type="button">Edit</button>
+      <button class="sched-clear" type="button">Clear</button>
+    {% else %}
+      <span class="schedule-summary muted">Always follows toggles</span>
+      <button class="sched-edit" type="button">Add allow-schedule</button>
+    {% endif %}
+    <span class="schedule-tz muted">Uses the Pi's local time.</span>
+  </div>
 </div>
 {% endfor %}
 
@@ -128,5 +149,72 @@ function wireAddButton(btn) {
     });
   });
 }
+
+/* ── Allow-schedule editor ── */
+var DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+function postSchedule(category, days, start, end) {
+  var body = 'category=' + encodeURIComponent(category) +
+    '&days=' + encodeURIComponent(days) +
+    '&start=' + encodeURIComponent(start) +
+    '&end=' + encodeURIComponent(end);
+  fetch('/schedule/set', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: body
+  }).then(function() { location.reload(); });
+}
+
+document.querySelectorAll('.schedule').forEach(function(wrap) {
+  var category = wrap.getAttribute('data-category');
+
+  wrap.querySelectorAll('.sched-clear').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      postSchedule(category, '', '00:00', '00:00');  // empty days = clear
+    });
+  });
+
+  wrap.querySelectorAll('.sched-edit').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var selected = (wrap.getAttribute('data-days') || '')
+        .split(',').filter(function(d) { return d !== ''; });
+      var start = wrap.getAttribute('data-start') || '09:00';
+      var end = wrap.getAttribute('data-end') || '22:00';
+
+      var editor = document.createElement('div');
+      editor.className = 'sched-editor';
+      var checks = DAY_LABELS.map(function(lbl, i) {
+        var on = selected.indexOf(String(i)) !== -1 ? ' checked' : '';
+        return '<label><input type="checkbox" value="' + i + '"' + on + '>' + lbl + '</label>';
+      }).join('');
+      editor.innerHTML =
+        '<div class="sched-days">' + checks + '</div>' +
+        '<div class="sched-times">' +
+          '<input type="time" class="sched-start" value="' + start + '">' +
+          ' – ' +
+          '<input type="time" class="sched-end" value="' + end + '">' +
+        '</div>' +
+        '<div class="sched-actions">' +
+          '<button class="btn-add sched-save" type="button">Save</button>' +
+          '<button class="sched-clear2" type="button">Clear</button>' +
+        '</div>';
+      wrap.innerHTML = '';
+      wrap.appendChild(editor);
+
+      editor.querySelector('.sched-save').addEventListener('click', function() {
+        var days = Array.prototype.slice
+          .call(editor.querySelectorAll('input[type=checkbox]:checked'))
+          .map(function(c) { return c.value; }).join(',');
+        postSchedule(category,
+          days,
+          editor.querySelector('.sched-start').value,
+          editor.querySelector('.sched-end').value);
+      });
+      editor.querySelector('.sched-clear2').addEventListener('click', function() {
+        postSchedule(category, '', '00:00', '00:00');
+      });
+    });
+  });
+});
 </script>
 {% endblock %}

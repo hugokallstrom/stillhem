@@ -9,14 +9,17 @@ from stillhem.admin.deps import require_auth
 from stillhem.blocklist import (
     add_custom_domain,
     add_domain,
+    clear_schedule,
     get_categories,
     list_domains,
     remove_domain,
+    set_schedule,
     toggle_platform,
 )
 from stillhem.db import get_config, set_config
 from stillhem.dns_control import is_unbound_running, reload_dns, total_queries
 from stillhem.netinfo import primary_ip
+from stillhem.schedule import hhmm_to_min
 from stillhem.serving import is_serving, queries_per_minute
 
 router = APIRouter()
@@ -92,6 +95,43 @@ def blocklist_remove(
 ):
     db_path = request.app.state.db_path
     remove_domain(domain, db_path)
+    reload_dns(
+        db_path,
+        request.app.state.blocklist_path,
+        request.app.state.unbound_conf_path,
+        request.app.state.template_dir,
+    )
+    return RedirectResponse(url="/", status_code=302)
+
+
+@router.post("/schedule/set")
+def schedule_set(
+    request: Request,
+    category: str = Form(...),
+    days: str = Form(""),          # CSV "0,5,6"
+    start: str = Form("00:00"),    # "HH:MM"
+    end: str = Form("00:00"),      # "HH:MM"
+    _token: str = Depends(require_auth),
+):
+    db_path = request.app.state.db_path
+    if category not in ("social", "video", "custom"):
+        return RedirectResponse(url="/", status_code=302)
+    raw_days = [d for d in days.split(",") if d != ""]
+    if not raw_days:
+        clear_schedule(db_path, category)          # explicit empty = back to toggles
+    else:
+        # Non-empty but malformed/out-of-range days is a bad request, not a clear:
+        # don't let "0,9" or "-1" silently wipe an existing schedule.
+        try:
+            day_ints = [int(d) for d in raw_days]
+        except ValueError:
+            return RedirectResponse(url="/", status_code=302)
+        if not all(0 <= d <= 6 for d in day_ints):
+            return RedirectResponse(url="/", status_code=302)
+        s, e = hhmm_to_min(start), hhmm_to_min(end)   # only place HH:MM<->min lives
+        if s is None or e is None or s == e:
+            return RedirectResponse(url="/", status_code=302)
+        set_schedule(db_path, category, day_ints, s, e)
     reload_dns(
         db_path,
         request.app.state.blocklist_path,

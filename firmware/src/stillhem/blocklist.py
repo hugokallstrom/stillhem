@@ -1,7 +1,10 @@
 import os
+import sqlite3
+from datetime import datetime
 from pathlib import Path
 
 from .db import get_db
+from .schedule import window_active
 
 ACTIVE_BLOCKLIST_PATH = Path(
     os.environ.get("STILLHEM_BLOCKLIST_PATH", "/var/lib/stillhem/active_blocklist.txt")
@@ -107,9 +110,13 @@ def get_categories(db_path: Path) -> list[dict]:
             by_cat[cat] = []
         by_cat[cat].append(p)
 
+    now = datetime.now()
+    schedules = load_schedules(db_path)  # one query, not one per category
     result = []
     for cat in category_order:
         plats = by_cat.get(cat, [])
+        schedule = schedules.get(cat)
+        active_now = window_active(schedule, now)
         if not plats and cat == "custom":
             # Always include custom card even if empty
             result.append({
@@ -118,6 +125,8 @@ def get_categories(db_path: Path) -> list[dict]:
                 "platforms": [],
                 "blocked_count": 0,
                 "total_count": 0,
+                "schedule": schedule,
+                "active_now": active_now,
             })
             continue
         if not plats:
@@ -129,25 +138,108 @@ def get_categories(db_path: Path) -> list[dict]:
             "platforms": plats,
             "blocked_count": blocked,
             "total_count": len(plats),
+            "schedule": schedule,
+            "active_now": active_now,
         })
     return result
 
 
-def export_to_file(db_path: Path, out_path: Path = ACTIVE_BLOCKLIST_PATH) -> None:
-    """Export all enabled domains respecting platform enabled state."""
+# ── Category allow-schedules ──────────────────────────────────────────────────
+# blocklist.py is the only module that touches the category_schedules table; the
+# helpers tolerate the table being absent (un-migrated Pi) by degrading to
+# "no schedule".
+
+def get_schedule(db_path: Path, category: str) -> dict | None:
+    """Return the schedule row {days, start_min, end_min} for a category, or None."""
+    try:
+        with get_db(db_path) as conn:
+            row = conn.execute(
+                "SELECT days, start_min, end_min FROM category_schedules WHERE category = ?",
+                (category,),
+            ).fetchone()
+    except sqlite3.OperationalError:
+        return None
+    return dict(row) if row else None
+
+
+def set_schedule(db_path: Path, category: str, days: list[int],
+                 start_min: int, end_min: int) -> None:
+    """Upsert a category's allow-schedule."""
+    days_csv = ",".join(str(int(d)) for d in days)
     with get_db(db_path) as conn:
-        rows = conn.execute(
-            """
-            SELECT bd.domain
-            FROM blocked_domains bd
-            LEFT JOIN platforms p ON bd.platform = p.name
-            WHERE bd.enabled = 1
-              AND (bd.platform IS NULL OR p.enabled = 1)
-            """
-        ).fetchall()
+        conn.execute(
+            "INSERT OR REPLACE INTO category_schedules (category, days, start_min, end_min)"
+            " VALUES (?, ?, ?, ?)",
+            (category, days_csv, start_min, end_min),
+        )
+
+
+def clear_schedule(db_path: Path, category: str) -> None:
+    """Remove a category's schedule (back to always-follow-toggles behavior)."""
+    with get_db(db_path) as conn:
+        conn.execute("DELETE FROM category_schedules WHERE category = ?", (category,))
+
+
+def load_schedules(db_path: Path) -> dict[str, dict]:
+    """Return {category: row} for all scheduled categories; {} if table missing."""
+    try:
+        with get_db(db_path) as conn:
+            rows = conn.execute(
+                "SELECT category, days, start_min, end_min FROM category_schedules"
+            ).fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    # Value shape matches get_schedule(): category is the map key, not repeated in
+    # the row, so both consumers (export_to_file, get_categories) see one shape.
+    return {
+        r["category"]: {"days": r["days"], "start_min": r["start_min"], "end_min": r["end_min"]}
+        for r in rows
+    }
+
+
+def export_to_file(db_path: Path, out_path: Path = ACTIVE_BLOCKLIST_PATH,
+                   now: datetime | None = None) -> bool:
+    """Write the effective blocklist. Return True iff the file content changed.
+
+    Effective semantics: effective_blocked = platform.enabled AND NOT
+    window_active(category, now). During an active allow-window the whole category
+    drops out regardless of per-platform toggles; outside it, the per-platform
+    toggle decides as before. `now` is a param purely so callers/tests can inject a
+    fixed clock; the sole real clock read is `datetime.now()` (naive local).
+    """
+    now = now or datetime.now()
+    active = {cat for cat, row in load_schedules(db_path).items() if window_active(row, now)}
+
+    sql = (
+        "SELECT bd.domain"
+        " FROM blocked_domains bd"
+        " LEFT JOIN platforms p ON bd.platform = p.name"
+        " WHERE bd.enabled = 1"
+        "   AND (bd.platform IS NULL OR (p.enabled = 1{cat_clause}))"
+        # Deterministic order: change-detection compares the exact output text, so
+        # the same logical set must always serialize identically or the 1-minute
+        # reconcile timer would reload Unbound on nothing but a row-order shuffle.
+        " ORDER BY bd.domain"
+    )
+    params: list = []
+    if active:
+        placeholders = ",".join("?" for _ in active)
+        cat_clause = f" AND p.category NOT IN ({placeholders})"
+        params = list(active)
+    else:
+        cat_clause = ""
+
+    with get_db(db_path) as conn:
+        rows = conn.execute(sql.format(cat_clause=cat_clause), params).fetchall()
     domains = [r["domain"] for r in rows]
+    new_text = "\n".join(domains) + "\n" if domains else ""
+
+    old_text = out_path.read_text() if out_path.exists() else None
+    if new_text == old_text:
+        return False
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text("\n".join(domains) + "\n" if domains else "")
+    out_path.write_text(new_text)
+    return True
 
 
 def import_preset(preset_name: str, db_path: Path) -> int:

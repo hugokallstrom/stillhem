@@ -54,6 +54,12 @@ def init_db(path: Path = DB_PATH) -> None:
                 added_at TEXT    NOT NULL DEFAULT (datetime('now')),
                 platform TEXT    REFERENCES platforms(name)
             );
+            CREATE TABLE IF NOT EXISTS category_schedules (
+                category   TEXT PRIMARY KEY,   -- 'social' | 'video' | 'custom'
+                days       TEXT    NOT NULL,   -- CSV of weekday() ints 0..6, Mon=0
+                start_min  INTEGER NOT NULL,   -- minutes since local midnight, 0..1439
+                end_min    INTEGER NOT NULL    -- minutes since local midnight, 0..1439
+            );
         """)
         # Seed platforms (only if they don't exist yet)
         for name, display_name, primary_domain, category, domains in _SEED_PLATFORMS:

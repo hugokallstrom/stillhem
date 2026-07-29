@@ -96,6 +96,50 @@ def test_reload_dns_skips_reload_when_unbound_not_running(tmp_path: Path) -> Non
     assert 'local-zone: "reddit.com." always_nxdomain' in conf_path.read_text()
 
 
+def test_reload_dns_returns_false_and_skips_when_unchanged(tmp_path: Path) -> None:
+    db_path = tmp_path / "test.db"
+    from stillhem.db import init_db
+    from stillhem.blocklist import add_domain
+    init_db(db_path)
+    add_domain("reddit.com", db_path)
+
+    blocklist_path = tmp_path / "blocklist.txt"
+    conf_path = tmp_path / "stillhem.conf"
+
+    with patch("stillhem.dns_control.is_unbound_running", return_value=True), \
+         patch("stillhem.dns_control.reload_unbound"):
+        assert reload_dns(db_path, blocklist_path, conf_path, TEMPLATE_DIR) is True  # first
+
+    with patch("stillhem.dns_control.generate_unbound_conf") as mock_gen, \
+         patch("stillhem.dns_control.is_unbound_running", return_value=True), \
+         patch("stillhem.dns_control.reload_unbound") as mock_reload:
+        # Nothing changed -> no-op.
+        assert reload_dns(db_path, blocklist_path, conf_path, TEMPLATE_DIR) is False
+        mock_gen.assert_not_called()
+        mock_reload.assert_not_called()
+
+
+def test_reload_dns_returns_true_when_schedule_flips(tmp_path: Path) -> None:
+    from datetime import datetime
+    from stillhem.db import init_db
+    from stillhem.blocklist import set_schedule
+    db_path = tmp_path / "test.db"
+    init_db(db_path)
+    set_schedule(db_path, "social", [0], 540, 1320)  # Mon 09:00-22:00
+
+    blocklist_path = tmp_path / "blocklist.txt"
+    conf_path = tmp_path / "stillhem.conf"
+    outside = datetime(2026, 7, 27, 0, 30)  # Mon 00:30
+    inside = datetime(2026, 7, 27, 12, 0)   # Mon 12:00
+
+    with patch("stillhem.dns_control.is_unbound_running", return_value=False):
+        reload_dns(db_path, blocklist_path, conf_path, TEMPLATE_DIR, now=outside)
+        assert "instagram.com" in blocklist_path.read_text()
+        # Crossing into the window flips the file.
+        assert reload_dns(db_path, blocklist_path, conf_path, TEMPLATE_DIR, now=inside) is True
+        assert "instagram.com" not in blocklist_path.read_text()
+
+
 from unittest.mock import MagicMock, patch as _patch
 
 from stillhem.dns_control import total_queries

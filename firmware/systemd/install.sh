@@ -26,9 +26,12 @@ init_db(Path('/var/lib/stillhem/stillhem.db'))
 
 echo "==> Installing systemd units..."
 ln -sf "$INSTALL_DIR/systemd/stillhem-admin.service" /etc/systemd/system/stillhem-admin.service
+ln -sf "$INSTALL_DIR/systemd/stillhem-reconcile.service" /etc/systemd/system/stillhem-reconcile.service
+ln -sf "$INSTALL_DIR/systemd/stillhem-reconcile.timer" /etc/systemd/system/stillhem-reconcile.timer
 systemctl daemon-reload
 systemctl enable stillhem-admin
 systemctl start stillhem-admin
+systemctl enable --now stillhem-reconcile.timer
 
 echo "==> Installing network-mode selector + captive DNS..."
 ln -sf "$INSTALL_DIR/systemd/stillhem-netmode.service" /etc/systemd/system/stillhem-netmode.service

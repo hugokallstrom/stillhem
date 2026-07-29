@@ -34,6 +34,13 @@ systemctl enable unbound.service
 # install-time preset having enabled avahi in the chroot.
 systemctl enable avahi-daemon.service
 
+# Reconcile timer: recomputes the effective blocklist from schedules every minute
+install -m 644 /opt/stillhem/firmware/systemd/stillhem-reconcile.service \
+    /etc/systemd/system/stillhem-reconcile.service
+install -m 644 /opt/stillhem/firmware/systemd/stillhem-reconcile.timer \
+    /etc/systemd/system/stillhem-reconcile.timer
+systemctl enable stillhem-reconcile.timer
+
 # Network-mode selector (AP setup vs. normal) + captive DNS for AP mode
 install -m 644 /opt/stillhem/firmware/systemd/stillhem-netmode.service \
     /etc/systemd/system/stillhem-netmode.service
