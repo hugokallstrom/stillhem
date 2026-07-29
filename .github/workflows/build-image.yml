@@ -23,6 +23,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      # Push builds both arches (armhf for the Pi B+ / ARMv6, arm64 for Pi 3 B+).
+      # A manual dispatch builds only the single arch chosen in the input.
+      matrix:
+        arch: ${{ fromJSON(github.event_name == 'workflow_dispatch' && format('["{0}"]', inputs.arch) || '["arm64", "armhf"]') }}
     steps:
       - uses: actions/checkout@v4
 
@@ -51,7 +57,7 @@ jobs:
 
       - name: Build image
         env:
-          PIGEN_ARCH: ${{ inputs.arch || 'arm64' }}
+          PIGEN_ARCH: ${{ matrix.arch }}
           PIGEN_VARIANT: ${{ inputs.variant || 'release' }}
         run: bash image/build.sh
 
@@ -63,7 +69,7 @@ jobs:
             echo ""
             echo "| | |"
             echo "|---|---|"
-            echo "| Arch | \`${{ inputs.arch || 'arm64' }}\` |"
+            echo "| Arch | \`${{ matrix.arch }}\` |"
             echo "| Variant | \`${{ inputs.variant || 'release' }}\` |"
             echo "| File | \`$(basename image/deploy/*.img.xz)\` |"
             echo "| Size | $(du -h image/deploy/*.img.xz | cut -f1) |"
@@ -75,7 +81,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: stillhem-${{ inputs.arch || 'arm64' }}-${{ inputs.variant || 'release' }}
+          name: stillhem-${{ matrix.arch }}-${{ inputs.variant || 'release' }}
           path: image/deploy/*.img.xz
           retention-days: 14
           compression-level: 0 # already xz-compressed
