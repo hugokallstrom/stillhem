@@ -2,17 +2,35 @@
 {% block content %}
 <header>
   <span class="brand">Stillhem</span>
-  {% if blocking_active %}
+  {% if serving %}
   <span class="status-pill"><span class="dot"></span>Blocking active</span>
   {% else %}
-  <span class="status-pill inactive"><span class="dot"></span>Blocking inactive</span>
+  <span class="status-pill inactive"><span class="dot"></span>No DNS traffic</span>
   {% endif %}
 </header>
 
 <h1>Blocking</h1>
-<p class="sub">Applies to every device on this network.
-  {% if not serving %}<a href="/router">Set up your router</a> first.{% endif %}
-</p>
+<p class="sub">Applies to every device on this network.</p>
+
+{% if not serving %}
+<div class="notice warn" role="status">
+  <b>Not receiving DNS traffic</b> — point your router's DNS at this device
+  ({{ pi_ip or "this Pi" }}). <a href="/router">Set up your router</a>.
+</div>
+{% endif %}
+
+<div class="notice" role="status">
+  Devices already connected keep their old DNS until they reconnect or their
+  DHCP lease renews — <b>reconnect a device</b> (toggle its Wi-Fi) for immediate effect.
+</div>
+
+<div class="notice{% if clock and clock.ntp_synced is false %} warn{% endif %}" role="status">
+  Pi time: <b>{{ clock.now }}</b>{% if clock and clock.timezone %} ({{ clock.timezone }}){% endif %}.
+  Schedules use this local time.
+  {% if clock and clock.ntp_synced is false %}
+  <b>Clock is not synced (NTP)</b> — schedules may be wrong until the clock syncs.
+  {% endif %}
+</div>
 
 {% for cat in categories %}
 <div class="card {{ cat.name }}">
@@ -70,7 +88,7 @@
       <span class="schedule-summary muted">Always follows toggles</span>
       <button class="sched-edit" type="button">Add allow-schedule</button>
     {% endif %}
-    <span class="schedule-tz muted">Uses the Pi's local time.</span>
+    <span class="schedule-tz muted">Uses the Pi's local time{% if clock and clock.timezone %} ({{ clock.timezone }}){% endif %}{% if clock and clock.ntp_synced is false %} — clock not synced{% endif %}.</span>
   </div>
 </div>
 {% endfor %}

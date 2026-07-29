@@ -139,6 +139,52 @@ def test_dashboard_hides_router_link_when_serving(authed_client: TestClient, db_
     assert "Blocking" in resp.text
 
 
+def test_pill_amber_and_notice_when_not_serving(authed_client: TestClient, db_path) -> None:
+    # No DNS traffic -> the status pill must NOT claim "Blocking active"; instead
+    # it warns the router isn't pointed here, and explains DHCP/reconnect lag.
+    with patch("stillhem.admin.routes.blocklist_routes.total_queries", return_value=0):
+        resp = authed_client.get("/")
+    assert resp.status_code == 200
+    assert "Not receiving DNS traffic" in resp.text
+    assert "Blocking active" not in resp.text
+    # Reconnect / DHCP-propagation notice is always present near the status.
+    assert "reconnect" in resp.text.lower()
+    assert "DHCP" in resp.text
+
+
+def test_pill_green_when_serving(authed_client: TestClient, db_path) -> None:
+    _set_config(db_path, "serving_sample", f"{_time.time() - 60}:0")
+    with patch("stillhem.admin.routes.blocklist_routes.total_queries", return_value=300):
+        resp = authed_client.get("/")
+    assert resp.status_code == 200
+    assert "Blocking active" in resp.text
+    assert "Not receiving DNS traffic" not in resp.text
+
+
+def test_dashboard_shows_pi_time_and_timezone(authed_client: TestClient, db_path) -> None:
+    from stillhem.clockinfo import ClockStatus
+
+    fake = ClockStatus(now="2026-07-29 14:03", timezone="Europe/Stockholm", ntp_synced=True)
+    with patch("stillhem.admin.routes.blocklist_routes.clock_status", return_value=fake):
+        resp = authed_client.get("/")
+    assert resp.status_code == 200
+    assert "2026-07-29 14:03" in resp.text
+    assert "Europe/Stockholm" in resp.text
+    # Synced clock: no NTP warning.
+    assert "not synced" not in resp.text.lower()
+
+
+def test_dashboard_warns_when_clock_not_ntp_synced(authed_client: TestClient, db_path) -> None:
+    from stillhem.clockinfo import ClockStatus
+
+    fake = ClockStatus(now="2026-07-29 14:03", timezone="Europe/Stockholm", ntp_synced=False)
+    with patch("stillhem.admin.routes.blocklist_routes.clock_status", return_value=fake):
+        resp = authed_client.get("/")
+    assert resp.status_code == 200
+    assert "not synced" in resp.text.lower()
+    assert "schedules may be wrong" in resp.text.lower()
+
+
 # ── /schedule/set ─────────────────────────────────────────────────────────────
 
 from stillhem.blocklist import get_schedule
