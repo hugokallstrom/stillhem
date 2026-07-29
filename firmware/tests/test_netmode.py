@@ -68,6 +68,18 @@ def test_scan_networks_parses_dedupes_and_sorts():
     ]
 
 
+def test_scan_networks_unescapes_colon_in_ssid():
+    # nmcli -t escapes a literal ':' inside a field as '\:'. Because
+    # scan_networks splits on ':' with maxsplit=2, the SSID (last field)
+    # keeps its escape and must be unescaped back to a real colon.
+    out = "90:WPA2:My\\:Net\n"
+    with patch("subprocess.run", return_value=_completed(out)):
+        nets = netmode.scan_networks()
+    assert nets == [
+        {"ssid": "My:Net", "signal": 90, "secured": True},
+    ]
+
+
 def test_start_ap_issues_expected_nmcli_calls():
     with patch("subprocess.run", return_value=_completed()) as run:
         netmode.start_ap()
