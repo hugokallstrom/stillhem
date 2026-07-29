@@ -30,6 +30,9 @@ install -m 644 /opt/stillhem/firmware/systemd/stillhem-admin.service \
     /etc/systemd/system/stillhem-admin.service
 systemctl enable stillhem-admin.service
 systemctl enable unbound.service
+# stillhem.local is the only advertised way in, so don't rely on the package's
+# install-time preset having enabled avahi in the chroot.
+systemctl enable avahi-daemon.service
 
 # Network-mode selector (AP setup vs. normal) + captive DNS for AP mode
 install -m 644 /opt/stillhem/firmware/systemd/stillhem-netmode.service \
