@@ -141,6 +141,14 @@ async def finish(request: Request):
         # NetworkManager now owns the persistent copy of the PSK; drop the
         # plaintext one from the DB so it does not linger in the config table.
         delete_config(db_path, "home_wifi_psk")
+    # Tear down the setup AP now that the box has its real network config.
+    # Ethernet-only boards (e.g. Pi B+) never brought one up, so a missing
+    # profile must not fail the request — match the guard-tuple precedent in
+    # dns_control.py / reconcile.py.
+    try:
+        netmode.stop_ap()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
     netmode.mark_setup_complete()
     # Deferred so the HTTP response flushes before the box reboots.
     subprocess.Popen(["systemd-run", "--on-active=3", "systemctl", "reboot"])

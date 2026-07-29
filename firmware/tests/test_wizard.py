@@ -62,6 +62,7 @@ def test_finish_without_wifi_hardware_skips_profile_save(setup_client, db_path, 
     set_password("hunter2", db_path)
     with patch("stillhem.admin.routes.wizard_routes.netmode.save_home_wifi") as save, \
          patch("stillhem.admin.routes.wizard_routes.netmode.mark_setup_complete") as mark, \
+         patch("stillhem.admin.routes.wizard_routes.netmode.stop_ap"), \
          patch("stillhem.admin.routes.wizard_routes.delete_config") as purge, \
          patch("stillhem.admin.routes.wizard_routes.subprocess.Popen") as popen:
         resp = setup_client.post("/wizard/finish", follow_redirects=False)
@@ -171,12 +172,47 @@ def test_finish_schedules_reboot(setup_client, db_path):
     set_password("hunter2", db_path)
     with patch("stillhem.admin.routes.wizard_routes.netmode.save_home_wifi") as save, \
          patch("stillhem.admin.routes.wizard_routes.netmode.mark_setup_complete") as mark, \
+         patch("stillhem.admin.routes.wizard_routes.netmode.stop_ap"), \
          patch("stillhem.admin.routes.wizard_routes.subprocess.Popen") as popen:
         resp = setup_client.post("/wizard/finish", follow_redirects=False)
     save.assert_called_once_with("HomeNet", "pw")
     mark.assert_called_once()
     popen.assert_called_once()
     assert resp.status_code in (200, 302)
+
+
+def test_finish_tears_down_setup_ap(setup_client, db_path):
+    from stillhem.db import set_config
+    from stillhem.auth import set_password
+    set_config(db_path, "home_wifi_ssid", "HomeNet")
+    set_config(db_path, "home_wifi_psk", "pw")
+    set_config(db_path, "wizard_preset", "social_only")
+    set_password("hunter2", db_path)
+    with patch("stillhem.admin.routes.wizard_routes.netmode.save_home_wifi"), \
+         patch("stillhem.admin.routes.wizard_routes.netmode.mark_setup_complete"), \
+         patch("stillhem.admin.routes.wizard_routes.netmode.stop_ap") as stop, \
+         patch("stillhem.admin.routes.wizard_routes.subprocess.Popen"):
+        resp = setup_client.post("/wizard/finish", follow_redirects=False)
+    # Completing the wizard tears down the setup AP explicitly.
+    stop.assert_called_once()
+    assert resp.status_code == 200
+
+
+def test_finish_swallows_missing_ap_teardown_failure(setup_client, db_path, no_wifi):
+    import subprocess
+    from stillhem.db import set_config
+    from stillhem.auth import set_password
+    set_config(db_path, "wizard_preset", "social_only")  # Ethernet-only: no AP profile
+    set_password("hunter2", db_path)
+    with patch("stillhem.admin.routes.wizard_routes.netmode.mark_setup_complete") as mark, \
+         patch("stillhem.admin.routes.wizard_routes.netmode.stop_ap",
+               side_effect=subprocess.CalledProcessError(1, "nmcli")), \
+         patch("stillhem.admin.routes.wizard_routes.subprocess.Popen") as popen:
+        resp = setup_client.post("/wizard/finish", follow_redirects=False)
+    # A board with no AP profile must still complete the wizard and reboot.
+    assert resp.status_code == 200
+    mark.assert_called_once()
+    popen.assert_called_once()
 
 
 def test_finish_purges_plaintext_psk_from_db(setup_client, db_path):
@@ -188,6 +224,7 @@ def test_finish_purges_plaintext_psk_from_db(setup_client, db_path):
     set_password("hunter2", db_path)
     with patch("stillhem.admin.routes.wizard_routes.netmode.save_home_wifi"), \
          patch("stillhem.admin.routes.wizard_routes.netmode.mark_setup_complete"), \
+         patch("stillhem.admin.routes.wizard_routes.netmode.stop_ap"), \
          patch("stillhem.admin.routes.wizard_routes.subprocess.Popen"):
         setup_client.post("/wizard/finish", follow_redirects=False)
     # PSK must not linger in the DB once NetworkManager owns the profile.
