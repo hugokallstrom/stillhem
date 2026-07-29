@@ -143,6 +143,14 @@ def finish(request: Request):
     # profile for a wlan0 that does not exist would fail the request.
     if ssid:
         netmode.save_home_wifi(ssid, psk)
+    # Explicit teardown of the setup AP is the intended completion step. It is
+    # best-effort: an Ethernet-only board never raised an AP, so tearing down a
+    # nonexistent profile makes nmcli exit non-zero — that must not fail the
+    # request. The imminent reboot drops the AP regardless.
+    try:
+        netmode.stop_ap()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
     netmode.mark_setup_complete()
     # Deferred so the HTTP response flushes before the box reboots.
     subprocess.Popen(["systemd-run", "--on-active=3", "systemctl", "reboot"])

@@ -1,3 +1,4 @@
+import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
@@ -62,6 +63,7 @@ def test_finish_without_wifi_hardware_skips_profile_save(setup_client, db_path, 
     set_password("hunter2", db_path)
     with patch("stillhem.admin.routes.wizard_routes.netmode.save_home_wifi") as save, \
          patch("stillhem.admin.routes.wizard_routes.netmode.mark_setup_complete") as mark, \
+         patch("stillhem.admin.routes.wizard_routes.netmode.stop_ap"), \
          patch("stillhem.admin.routes.wizard_routes.subprocess.Popen") as popen:
         resp = setup_client.post("/wizard/finish", follow_redirects=False)
     # nmcli would fail against a wlan0 that does not exist.
@@ -168,12 +170,50 @@ def test_finish_schedules_reboot(setup_client, db_path):
     set_password("hunter2", db_path)
     with patch("stillhem.admin.routes.wizard_routes.netmode.save_home_wifi") as save, \
          patch("stillhem.admin.routes.wizard_routes.netmode.mark_setup_complete") as mark, \
+         patch("stillhem.admin.routes.wizard_routes.netmode.stop_ap"), \
          patch("stillhem.admin.routes.wizard_routes.subprocess.Popen") as popen:
         resp = setup_client.post("/wizard/finish", follow_redirects=False)
     save.assert_called_once_with("HomeNet", "pw")
     mark.assert_called_once()
     popen.assert_called_once()
     assert resp.status_code in (200, 302)
+
+
+def test_finish_tears_down_the_setup_ap(setup_client, db_path):
+    from stillhem.db import set_config
+    from stillhem.auth import set_password
+    set_config(db_path, "home_wifi_ssid", "HomeNet")
+    set_config(db_path, "home_wifi_psk", "pw")
+    set_config(db_path, "wizard_preset", "social_only")
+    set_password("hunter2", db_path)
+    with patch("stillhem.admin.routes.wizard_routes.netmode.save_home_wifi"), \
+         patch("stillhem.admin.routes.wizard_routes.netmode.mark_setup_complete"), \
+         patch("stillhem.admin.routes.wizard_routes.netmode.stop_ap") as stop_ap, \
+         patch("stillhem.admin.routes.wizard_routes.subprocess.Popen"):
+        resp = setup_client.post("/wizard/finish", follow_redirects=False)
+    stop_ap.assert_called_once_with()
+    assert resp.status_code in (200, 302)
+
+
+def test_finish_survives_missing_setup_ap(setup_client, db_path):
+    # An Ethernet-only board never raised an AP; tearing down a nonexistent
+    # profile makes nmcli exit non-zero, and that must not fail the request.
+    from stillhem.db import set_config
+    from stillhem.auth import set_password
+    set_config(db_path, "home_wifi_ssid", "HomeNet")
+    set_config(db_path, "home_wifi_psk", "pw")
+    set_config(db_path, "wizard_preset", "social_only")
+    set_password("hunter2", db_path)
+    boom = subprocess.CalledProcessError(1, ["nmcli"])
+    with patch("stillhem.admin.routes.wizard_routes.netmode.save_home_wifi"), \
+         patch("stillhem.admin.routes.wizard_routes.netmode.mark_setup_complete") as mark, \
+         patch("stillhem.admin.routes.wizard_routes.netmode.stop_ap", side_effect=boom), \
+         patch("stillhem.admin.routes.wizard_routes.subprocess.Popen") as popen:
+        resp = setup_client.post("/wizard/finish", follow_redirects=False)
+    # Teardown failure is swallowed: the box still marks complete and reboots.
+    mark.assert_called_once()
+    popen.assert_called_once()
+    assert resp.status_code == 200
 
 
 def test_finish_guard_redirects_when_incomplete(setup_client, db_path):
