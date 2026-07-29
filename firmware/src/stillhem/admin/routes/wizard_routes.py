@@ -2,30 +2,25 @@ import subprocess
 from pathlib import Path
 
 from starlette.requests import Request
-from starlette.responses import HTMLResponse, RedirectResponse
+from starlette.responses import RedirectResponse
 from starlette.routing import Route
 from starlette.templating import Jinja2Templates
 
 from stillhem import netmode
 from stillhem.auth import is_password_set, set_password
-from stillhem.blocklist import import_preset
 from stillhem.db import delete_config, get_config, set_config
-from stillhem.dns_control import reload_dns
 
 templates = Jinja2Templates(
     directory=str(Path(__file__).parent.parent.parent.parent.parent / "templates")
 )
 
-PRESETS = ["social_only", "social_news", "hard_mode"]
-
 
 def _current_step(db_path: Path) -> str:
-    # On Ethernet-only hardware there is no network to choose, and the box is
-    # already reachable over the wire — skip straight to the content steps.
+    # Blocking ships enabled out of the box (seeded at init_db), so setup is just
+    # network + password. On Ethernet-only hardware there is no network to choose
+    # and the box is already reachable over the wire — skip straight to password.
     if netmode.wifi_present() and not get_config(db_path, "home_wifi_ssid"):
         return "/wizard/wifi"
-    if not get_config(db_path, "wizard_preset"):
-        return "/wizard/preset"
     if not is_password_set(db_path):
         return "/wizard/password"
     return "/wizard/done"
@@ -67,32 +62,6 @@ async def wifi_submit(request: Request):
     db_path = request.app.state.db_path
     set_config(db_path, "home_wifi_ssid", chosen)
     set_config(db_path, "home_wifi_psk", password)
-    return RedirectResponse(url="/wizard/preset", status_code=302)
-
-
-async def preset_page(request: Request):
-    redirect = _guard(request)
-    if redirect:
-        return redirect
-    return templates.TemplateResponse(request, "wizard_preset.html", {"presets": PRESETS, "error": None})
-
-
-async def preset_submit(request: Request):
-    form = await request.form()
-    preset = form.get("preset", "")
-    db_path = request.app.state.db_path
-    if preset not in PRESETS:
-        return templates.TemplateResponse(
-            request, "wizard_preset.html",
-            {"presets": PRESETS, "error": "Please choose a preset."}, status_code=200)
-    import_preset(preset, db_path)
-    set_config(db_path, "wizard_preset", preset)
-    reload_dns(
-        db_path,
-        request.app.state.blocklist_path,
-        request.app.state.unbound_conf_path,
-        request.app.state.template_dir,
-    )
     return RedirectResponse(url="/wizard/password", status_code=302)
 
 
@@ -159,8 +128,6 @@ routes = [
     Route("/wizard", wizard_index, methods=["GET"]),
     Route("/wizard/wifi", wifi_page, methods=["GET"]),
     Route("/wizard/wifi", wifi_submit, methods=["POST"]),
-    Route("/wizard/preset", preset_page, methods=["GET"]),
-    Route("/wizard/preset", preset_submit, methods=["POST"]),
     Route("/wizard/password", password_page, methods=["GET"]),
     Route("/wizard/password", password_submit, methods=["POST"]),
     Route("/wizard/done", done_page, methods=["GET"]),

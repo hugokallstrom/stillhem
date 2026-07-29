@@ -6,7 +6,6 @@ from starlette.testclient import TestClient
 
 from stillhem.admin.app import create_app
 from stillhem.auth import is_password_set
-from stillhem.blocklist import list_domains
 from stillhem.db import get_config
 
 
@@ -42,24 +41,23 @@ def test_wizard_index_sends_browser_to_first_step(setup_client):
     assert resp.headers["location"] == "/wizard/wifi"
 
 
-def test_wizard_starts_at_preset_without_wifi_hardware(setup_client, no_wifi):
-    # No radio means no network to choose: the Wi-Fi step is skipped entirely.
+def test_wizard_starts_at_password_without_wifi_hardware(setup_client, no_wifi):
+    # No radio means no network to choose: the Wi-Fi step is skipped entirely,
+    # and with the preset step gone the first outstanding step is the password.
     resp = setup_client.get("/wizard", follow_redirects=False)
     assert resp.status_code == 302
-    assert resp.headers["location"] == "/wizard/preset"
+    assert resp.headers["location"] == "/wizard/password"
 
 
-def test_wifi_page_bounces_to_preset_without_wifi_hardware(setup_client, no_wifi):
+def test_wifi_page_bounces_to_password_without_wifi_hardware(setup_client, no_wifi):
     resp = setup_client.get("/wizard/wifi", follow_redirects=False)
     assert resp.status_code == 302
-    assert resp.headers["location"] == "/wizard/preset"
+    assert resp.headers["location"] == "/wizard/password"
 
 
 def test_finish_without_wifi_hardware_skips_profile_save(setup_client, db_path, no_wifi):
     from stillhem.auth import set_password
-    from stillhem.db import set_config
-    set_config(db_path, "wizard_preset", "social_only")  # no home_wifi_ssid ever set
-    set_password("hunter2", db_path)
+    set_password("hunter2", db_path)  # no home_wifi_ssid ever set
     with patch("stillhem.admin.routes.wizard_routes.netmode.save_home_wifi") as save, \
          patch("stillhem.admin.routes.wizard_routes.netmode.mark_setup_complete") as mark, \
          patch("stillhem.admin.routes.wizard_routes.netmode.stop_ap"), \
@@ -89,7 +87,8 @@ def test_wifi_submit_saves_profile_and_advances(setup_client, db_path):
                                  data={"ssid": "HomeNet", "password": "s3cret"},
                                  follow_redirects=False)
     assert resp.status_code == 302
-    assert resp.headers["location"] == "/wizard/preset"
+    # With the preset step removed, Wi-Fi advances straight to the password step.
+    assert resp.headers["location"] == "/wizard/password"
     save.assert_not_called()
     assert get_config(db_path, "home_wifi_ssid") == "HomeNet"
     assert get_config(db_path, "home_wifi_psk") == "s3cret"
@@ -114,29 +113,27 @@ def test_wifi_submit_rejects_empty_ssid(setup_client):
     assert "choose or enter" in resp.text.lower()
 
 
-def test_preset_submit_imports_and_advances(setup_client, db_path):
+def test_preset_step_is_gone(setup_client, db_path):
     from stillhem.db import set_config
     set_config(db_path, "home_wifi_ssid", "HomeNet")  # wifi step already done
-    with patch("stillhem.admin.routes.wizard_routes.reload_dns"):
-        resp = setup_client.post("/wizard/preset", data={"preset": "social_only"},
-                                 follow_redirects=False)
+    # The preset step was removed: no route matches /wizard/preset at all.
+    assert setup_client.get("/wizard/preset", follow_redirects=False).status_code == 404
+    assert setup_client.post("/wizard/preset", data={"preset": "social_only"},
+                             follow_redirects=False).status_code == 404
+
+
+def test_wizard_never_routes_to_preset(setup_client, db_path):
+    # From a clean setup DB, walking the wizard must never land on /wizard/preset.
+    from stillhem.db import set_config
+    set_config(db_path, "home_wifi_ssid", "HomeNet")  # wifi done
+    resp = setup_client.get("/wizard", follow_redirects=False)
     assert resp.status_code == 302
     assert resp.headers["location"] == "/wizard/password"
-    assert get_config(db_path, "wizard_preset") == "social_only"
-    assert any(d["domain"] == "instagram.com" for d in list_domains(db_path))
-
-
-def test_preset_rejects_unknown(setup_client, db_path):
-    from stillhem.db import set_config
-    set_config(db_path, "home_wifi_ssid", "HomeNet")
-    resp = setup_client.post("/wizard/preset", data={"preset": "bogus"}, follow_redirects=False)
-    assert resp.status_code == 200
 
 
 def test_password_submit_sets_password_and_advances(setup_client, db_path):
     from stillhem.db import set_config
     set_config(db_path, "home_wifi_ssid", "HomeNet")
-    set_config(db_path, "wizard_preset", "social_only")
     resp = setup_client.post("/wizard/password",
                              data={"password": "hunter2", "confirm": "hunter2"},
                              follow_redirects=False)
@@ -148,7 +145,6 @@ def test_password_submit_sets_password_and_advances(setup_client, db_path):
 def test_password_submit_rejects_mismatch(setup_client, db_path):
     from stillhem.db import set_config
     set_config(db_path, "home_wifi_ssid", "HomeNet")
-    set_config(db_path, "wizard_preset", "social_only")
     resp = setup_client.post("/wizard/password",
                              data={"password": "hunter2", "confirm": "nope"},
                              follow_redirects=False)
@@ -157,8 +153,8 @@ def test_password_submit_rejects_mismatch(setup_client, db_path):
 
 
 def test_wizard_step_guard_snaps_forward(setup_client):
-    # Landing on /wizard/preset before wifi is done bounces back to wifi.
-    resp = setup_client.get("/wizard/preset", follow_redirects=False)
+    # Landing on /wizard/password before wifi is done bounces back to wifi.
+    resp = setup_client.get("/wizard/password", follow_redirects=False)
     assert resp.status_code == 302
     assert resp.headers["location"] == "/wizard/wifi"
 
@@ -168,7 +164,6 @@ def test_finish_schedules_reboot(setup_client, db_path):
     from stillhem.auth import set_password
     set_config(db_path, "home_wifi_ssid", "HomeNet")
     set_config(db_path, "home_wifi_psk", "pw")
-    set_config(db_path, "wizard_preset", "social_only")
     set_password("hunter2", db_path)
     with patch("stillhem.admin.routes.wizard_routes.netmode.save_home_wifi") as save, \
          patch("stillhem.admin.routes.wizard_routes.netmode.mark_setup_complete") as mark, \
@@ -186,7 +181,6 @@ def test_finish_tears_down_setup_ap(setup_client, db_path):
     from stillhem.auth import set_password
     set_config(db_path, "home_wifi_ssid", "HomeNet")
     set_config(db_path, "home_wifi_psk", "pw")
-    set_config(db_path, "wizard_preset", "social_only")
     set_password("hunter2", db_path)
     with patch("stillhem.admin.routes.wizard_routes.netmode.save_home_wifi"), \
          patch("stillhem.admin.routes.wizard_routes.netmode.mark_setup_complete"), \
@@ -200,10 +194,8 @@ def test_finish_tears_down_setup_ap(setup_client, db_path):
 
 def test_finish_swallows_missing_ap_teardown_failure(setup_client, db_path, no_wifi):
     import subprocess
-    from stillhem.db import set_config
     from stillhem.auth import set_password
-    set_config(db_path, "wizard_preset", "social_only")  # Ethernet-only: no AP profile
-    set_password("hunter2", db_path)
+    set_password("hunter2", db_path)  # Ethernet-only: no AP profile
     with patch("stillhem.admin.routes.wizard_routes.netmode.mark_setup_complete") as mark, \
          patch("stillhem.admin.routes.wizard_routes.netmode.stop_ap",
                side_effect=subprocess.CalledProcessError(1, "nmcli")), \
@@ -220,7 +212,6 @@ def test_finish_purges_plaintext_psk_from_db(setup_client, db_path):
     from stillhem.auth import set_password
     set_config(db_path, "home_wifi_ssid", "HomeNet")
     set_config(db_path, "home_wifi_psk", "s3cret")
-    set_config(db_path, "wizard_preset", "social_only")
     set_password("hunter2", db_path)
     with patch("stillhem.admin.routes.wizard_routes.netmode.save_home_wifi"), \
          patch("stillhem.admin.routes.wizard_routes.netmode.mark_setup_complete"), \
@@ -234,12 +225,14 @@ def test_finish_purges_plaintext_psk_from_db(setup_client, db_path):
 
 
 def test_finish_guard_redirects_when_incomplete(setup_client, db_path):
+    # Wi-Fi done but no password yet -> finish bounces back to the password step
+    # (the preset step no longer exists between them).
     from stillhem.db import set_config
     set_config(db_path, "home_wifi_ssid", "HomeNet")
     with patch("stillhem.admin.routes.wizard_routes.subprocess.Popen") as popen:
         resp = setup_client.post("/wizard/finish", follow_redirects=False)
     assert resp.status_code == 302
-    assert resp.headers["location"] == "/wizard/preset"
+    assert resp.headers["location"] == "/wizard/password"
     popen.assert_not_called()
 
 

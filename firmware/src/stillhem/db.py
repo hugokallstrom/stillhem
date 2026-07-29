@@ -3,6 +3,11 @@ from pathlib import Path
 
 DB_PATH = Path("/var/lib/stillhem/stillhem.db")
 
+# The DEFAULT blocklist the built image ships enabled from first boot: the union
+# of the social set and the video-streaming set (see blocklists/default.txt).
+# News and gaming domains are deliberately excluded. init_db seeds these enabled,
+# so a freshly imaged box blocks social + video before the wizard is even run;
+# every platform stays toggleable from the dashboard afterwards.
 _SEED_PLATFORMS = [
     # (name, display_name, primary_domain, category, domains...)
     ("instagram", "Instagram", "instagram.com", "social",
@@ -10,19 +15,23 @@ _SEED_PLATFORMS = [
     ("tiktok", "TikTok", "tiktok.com", "social",
      ["tiktok.com", "tiktokcdn.com", "tiktokv.com"]),
     ("reddit", "Reddit", "reddit.com", "social",
-     ["reddit.com", "redd.it", "redditstatic.com", "redditmedia.com"]),
+     ["reddit.com", "redd.it", "redditstatic.com", "redditmedia.com", "reddituploads.com"]),
     ("x", "X", "x.com", "social",
      ["x.com", "twitter.com", "t.co", "twimg.com"]),
     ("facebook", "Facebook", "facebook.com", "social",
      ["facebook.com", "threads.net"]),
     ("snapchat", "Snapchat", "snapchat.com", "social",
      ["snapchat.com", "sc-cdn.net"]),
+    ("pinterest", "Pinterest", "pinterest.com", "social",
+     ["pinterest.com", "pinimg.com"]),
     ("linkedin", "LinkedIn", "linkedin.com", "social",
-     ["linkedin.com"]),
+     ["linkedin.com", "licdn.com"]),
     ("youtube", "YouTube", "youtube.com", "video",
      ["youtube.com", "youtu.be", "googlevideo.com", "ytimg.com"]),
+    ("netflix", "Netflix", "netflix.com", "video",
+     ["netflix.com", "nflxvideo.net"]),
     ("twitch", "Twitch", "twitch.tv", "video",
-     ["twitch.tv", "twitchapps.com"]),
+     ["twitch.tv", "twitchsvc.net"]),
 ]
 
 

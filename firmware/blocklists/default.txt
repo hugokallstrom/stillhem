@@ -1,0 +1,48 @@
+# Default blocklist shipped enabled on the built image (social + video).
+# This is the union of social_only.txt and the video section of hard_mode.txt;
+# news and gaming domains are deliberately excluded. It documents the set that
+# stillhem.db._SEED_PLATFORMS seeds at init_db — the two are kept in lock-step by
+# tests/test_default_blocking.py. Domains stay editable from the dashboard.
+# === Social ===
+# Facebook / Instagram / Threads
+facebook.com
+instagram.com
+cdninstagram.com
+fbcdn.net
+threads.net
+# Twitter / X
+twitter.com
+t.co
+twimg.com
+x.com
+# TikTok
+tiktok.com
+tiktokcdn.com
+tiktokv.com
+# Reddit
+reddit.com
+redd.it
+redditstatic.com
+redditmedia.com
+reddituploads.com
+# Snapchat
+snapchat.com
+sc-cdn.net
+# Pinterest
+pinterest.com
+pinimg.com
+# LinkedIn
+linkedin.com
+licdn.com
+# === Video / streaming ===
+# YouTube
+youtube.com
+youtu.be
+googlevideo.com
+ytimg.com
+# Netflix
+netflix.com
+nflxvideo.net
+# Twitch
+twitch.tv
+twitchsvc.net
