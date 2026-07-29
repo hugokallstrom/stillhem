@@ -1,7 +1,17 @@
 import json
+import logging
 import subprocess
 import sys
+import time
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
+
+# start_ap() drives several nmcli calls; a single transient failure (device
+# busy, NM not settled at boot) would otherwise leave the unit with no AP and
+# no way in. Retry a few times with a short backoff before giving up loudly.
+AP_START_ATTEMPTS = 3
+AP_START_BACKOFF_SEC = 2.0
 
 AP_CON_NAME = "Stillhem Setup"
 AP_SSID = "Stillhem Setup"
@@ -115,6 +125,42 @@ def start_ap() -> None:
     _run(["connection", "up", AP_CON_NAME])
 
 
+def start_ap_with_retry() -> None:
+    """Bring up the setup AP, retrying transient failures with a short backoff.
+
+    Every failed attempt tears down any half-created profile before retrying (and
+    before giving up), so neither a retry nor the next boot trips over a duplicate
+    con-name. After AP_START_ATTEMPTS failures the last error is logged loudly and
+    re-raised — the unit surfaces the failure rather than sitting silently with no AP.
+    """
+    for attempt in range(1, AP_START_ATTEMPTS + 1):
+        try:
+            start_ap()
+            return
+        except Exception:
+            # A failed attempt may leave a half-created profile behind; clear it
+            # so a retry (or the next boot) doesn't trip over a duplicate con-name.
+            try:
+                stop_ap()
+            except Exception:
+                pass
+            if attempt >= AP_START_ATTEMPTS:
+                logger.error(
+                    "start_ap failed after %d attempts; device has no setup AP",
+                    AP_START_ATTEMPTS,
+                    exc_info=True,
+                )
+                raise
+            logger.warning(
+                "start_ap attempt %d/%d failed; retrying in %.1fs",
+                attempt,
+                AP_START_ATTEMPTS,
+                AP_START_BACKOFF_SEC,
+                exc_info=True,
+            )
+            time.sleep(AP_START_BACKOFF_SEC)
+
+
 def stop_ap() -> None:
     _run(["connection", "down", AP_CON_NAME])
     _run(["connection", "delete", AP_CON_NAME])
@@ -184,7 +230,7 @@ def boot() -> None:
     # Mode is written before the AP goes up so a failed AP still leaves correct
     # state on disk (and the unit still reports the failure).
     write_mode("setup")
-    start_ap()
+    start_ap_with_retry()
 
 
 if __name__ == "__main__":
