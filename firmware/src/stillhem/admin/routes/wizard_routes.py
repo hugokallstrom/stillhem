@@ -20,7 +20,9 @@ PRESETS = ["social_only", "social_news", "hard_mode"]
 
 
 def _current_step(db_path: Path) -> str:
-    if not get_config(db_path, "home_wifi_ssid"):
+    # On Ethernet-only hardware there is no network to choose, and the box is
+    # already reachable over the wire — skip straight to the content steps.
+    if netmode.wifi_present() and not get_config(db_path, "home_wifi_ssid"):
         return "/wizard/wifi"
     if not get_config(db_path, "wizard_preset"):
         return "/wizard/preset"
@@ -35,6 +37,12 @@ def _guard(request: Request):
     if request.url.path != step:
         return RedirectResponse(url=step, status_code=302)
     return None
+
+
+@router.get("/wizard")
+def wizard_index(request: Request):
+    """Entry point: send the browser to whichever step is outstanding."""
+    return RedirectResponse(url=_current_step(request.app.state.db_path), status_code=302)
 
 
 @router.get("/wizard/wifi", response_class=HTMLResponse)
@@ -120,7 +128,7 @@ def done_page(request: Request):
     redirect = _guard(request)
     if redirect:
         return redirect
-    ssid = get_config(request.app.state.db_path, "home_wifi_ssid") or "your home network"
+    ssid = get_config(request.app.state.db_path, "home_wifi_ssid") or ""
     return templates.TemplateResponse(request, "wizard_done.html", {"ssid": ssid})
 
 
@@ -131,7 +139,10 @@ def finish(request: Request):
         return RedirectResponse(url=_current_step(db_path), status_code=302)
     ssid = get_config(db_path, "home_wifi_ssid") or ""
     psk = get_config(db_path, "home_wifi_psk") or ""
-    netmode.save_home_wifi(ssid, psk)
+    # No SSID means the Wi-Fi step was skipped (Ethernet-only board); saving a
+    # profile for a wlan0 that does not exist would fail the request.
+    if ssid:
+        netmode.save_home_wifi(ssid, psk)
     netmode.mark_setup_complete()
     # Deferred so the HTTP response flushes before the box reboots.
     subprocess.Popen(["systemd-run", "--on-active=3", "systemctl", "reboot"])
