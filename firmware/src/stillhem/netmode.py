@@ -11,6 +11,7 @@ STATE_DIR = Path("/var/lib/stillhem")
 MODE_PATH = STATE_DIR / "mode"
 SCAN_CACHE_PATH = STATE_DIR / "wifi_scan.json"
 SETUP_COMPLETE_PATH = STATE_DIR / "setup_complete"
+WIFI_PRESENT_PATH = STATE_DIR / "wifi_present"
 
 _VALID_MODES = ("setup", "normal")
 
@@ -126,6 +127,24 @@ def save_home_wifi(ssid: str, psk: str) -> None:
         _run(["connection", "modify", ssid, "wifi-sec.key-mgmt", "wpa-psk", "wifi-sec.psk", psk])
 
 
+def write_wifi_present(present: bool) -> None:
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    WIFI_PRESENT_PATH.write_text("1" if present else "0")
+
+
+def wifi_present() -> bool:
+    """Whether this board has Wi-Fi hardware, as recorded at boot.
+
+    The admin service reads this to decide whether the wizard should ask for a
+    home network at all. Unrecorded (netmode has not run yet) means True: a box
+    with Wi-Fi is the common case, and the Wi-Fi step is harmless on hardware
+    that turns out to have none — it's only skipped once we know there is none.
+    """
+    if not WIFI_PRESENT_PATH.exists():
+        return True
+    return WIFI_PRESENT_PATH.read_text().strip() != "0"
+
+
 def read_mode() -> str:
     if not MODE_PATH.exists():
         return "setup"
@@ -139,16 +158,33 @@ def write_mode(mode: str) -> None:
 
 
 def boot() -> None:
-    if should_enter_setup():
-        try:
-            networks = scan_networks()
-        except Exception:
-            networks = read_cached_scan()  # possibly empty; manual SSID entry covers it
-        cache_scan(networks)
-        start_ap()
-        write_mode("setup")
-    else:
+    try:
+        wifi = has_wifi_device()
+    except Exception:
+        wifi = True  # assume the common case; only a definite "no" changes behaviour
+    write_wifi_present(wifi)
+
+    if not should_enter_setup():
         write_mode("normal")
+        return
+
+    # Ethernet-only hardware (e.g. Pi B+): there is no radio to scan with and no
+    # AP to raise, so setup runs over the wired link — the buyer reaches the
+    # wizard at http://stillhem.local/ instead of joining a setup network.
+    # Attempting the AP here would fail the unit and leave mode unwritten.
+    if not wifi:
+        write_mode("setup")
+        return
+
+    try:
+        networks = scan_networks()
+    except Exception:
+        networks = read_cached_scan()  # possibly empty; manual SSID entry covers it
+    cache_scan(networks)
+    # Mode is written before the AP goes up so a failed AP still leaves correct
+    # state on disk (and the unit still reports the failure).
+    write_mode("setup")
+    start_ap()
 
 
 if __name__ == "__main__":

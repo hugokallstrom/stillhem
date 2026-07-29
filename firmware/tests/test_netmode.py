@@ -2,6 +2,8 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 import stillhem.netmode as netmode
 
 
@@ -110,25 +112,76 @@ def test_cache_and_read_scan_roundtrip(tmp_path, monkeypatch):
     assert netmode.read_cached_scan() == nets
 
 
-def test_boot_normal_when_configured(tmp_path, monkeypatch):
+@pytest.fixture
+def state_dir(tmp_path, monkeypatch):
+    """Redirect every netmode state path at a temp dir."""
     monkeypatch.setattr(netmode, "STATE_DIR", tmp_path)
     monkeypatch.setattr(netmode, "MODE_PATH", tmp_path / "mode")
-    with patch.object(netmode, "should_enter_setup", return_value=False):
+    monkeypatch.setattr(netmode, "SCAN_CACHE_PATH", tmp_path / "wifi_scan.json")
+    monkeypatch.setattr(netmode, "SETUP_COMPLETE_PATH", tmp_path / "setup_complete")
+    monkeypatch.setattr(netmode, "WIFI_PRESENT_PATH", tmp_path / "wifi_present")
+    return tmp_path
+
+
+def test_boot_normal_when_configured(state_dir):
+    with patch.object(netmode, "has_wifi_device", return_value=True), \
+         patch.object(netmode, "should_enter_setup", return_value=False):
         netmode.boot()
     assert netmode.read_mode() == "normal"
 
 
-def test_boot_setup_brings_up_ap_and_caches(tmp_path, monkeypatch):
-    monkeypatch.setattr(netmode, "STATE_DIR", tmp_path)
-    monkeypatch.setattr(netmode, "MODE_PATH", tmp_path / "mode")
-    monkeypatch.setattr(netmode, "SCAN_CACHE_PATH", tmp_path / "wifi_scan.json")
-    with patch.object(netmode, "should_enter_setup", return_value=True), \
+def test_boot_setup_brings_up_ap_and_caches(state_dir):
+    with patch.object(netmode, "has_wifi_device", return_value=True), \
+         patch.object(netmode, "should_enter_setup", return_value=True), \
          patch.object(netmode, "scan_networks", return_value=[{"ssid": "X", "signal": 1, "secured": False}]), \
          patch.object(netmode, "start_ap") as start:
         netmode.boot()
     start.assert_called_once()
     assert netmode.read_mode() == "setup"
     assert netmode.read_cached_scan() == [{"ssid": "X", "signal": 1, "secured": False}]
+    assert netmode.wifi_present() is True
+
+
+def test_boot_without_wifi_hardware_skips_ap(state_dir):
+    # Pi B+ over Ethernet: no radio to scan with, no AP to raise. Setup has to
+    # run over the wire, and attempting the AP would fail the unit.
+    with patch.object(netmode, "has_wifi_device", return_value=False), \
+         patch.object(netmode, "should_enter_setup", return_value=True), \
+         patch.object(netmode, "scan_networks") as scan, \
+         patch.object(netmode, "start_ap") as start:
+        netmode.boot()
+    scan.assert_not_called()
+    start.assert_not_called()
+    assert netmode.read_mode() == "setup"
+    assert netmode.wifi_present() is False
+
+
+def test_boot_records_wifi_presence_in_normal_mode(state_dir):
+    with patch.object(netmode, "has_wifi_device", return_value=False), \
+         patch.object(netmode, "should_enter_setup", return_value=False):
+        netmode.boot()
+    assert netmode.wifi_present() is False
+
+
+def test_boot_assumes_wifi_when_probe_fails(state_dir):
+    with patch.object(netmode, "has_wifi_device", side_effect=RuntimeError("nmcli gone")), \
+         patch.object(netmode, "should_enter_setup", return_value=False):
+        netmode.boot()
+    assert netmode.wifi_present() is True
+
+
+def test_boot_writes_mode_even_if_ap_fails(state_dir):
+    with patch.object(netmode, "has_wifi_device", return_value=True), \
+         patch.object(netmode, "should_enter_setup", return_value=True), \
+         patch.object(netmode, "scan_networks", return_value=[]), \
+         patch.object(netmode, "start_ap", side_effect=RuntimeError("no AP")):
+        with pytest.raises(RuntimeError):
+            netmode.boot()
+    assert netmode.read_mode() == "setup"
+
+
+def test_wifi_present_defaults_true_when_unrecorded(state_dir):
+    assert netmode.wifi_present() is True
 
 
 def test_should_enter_setup_false_when_setup_complete(tmp_path, monkeypatch):
@@ -140,11 +193,9 @@ def test_should_enter_setup_false_when_setup_complete(tmp_path, monkeypatch):
     run.assert_not_called()
 
 
-def test_boot_setup_survives_scan_failure(tmp_path, monkeypatch):
-    monkeypatch.setattr(netmode, "STATE_DIR", tmp_path)
-    monkeypatch.setattr(netmode, "MODE_PATH", tmp_path / "mode")
-    monkeypatch.setattr(netmode, "SCAN_CACHE_PATH", tmp_path / "wifi_scan.json")
-    with patch.object(netmode, "should_enter_setup", return_value=True), \
+def test_boot_setup_survives_scan_failure(state_dir):
+    with patch.object(netmode, "has_wifi_device", return_value=True), \
+         patch.object(netmode, "should_enter_setup", return_value=True), \
          patch.object(netmode, "scan_networks", side_effect=RuntimeError("scan failed")), \
          patch.object(netmode, "read_cached_scan", return_value=[]), \
          patch.object(netmode, "start_ap") as start:

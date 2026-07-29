@@ -45,7 +45,9 @@ def create_app(
         is_static = path == "/static" or path.startswith("/static/")
         if request.app.state.setup_mode:
             if not (is_wizard or is_static):
-                return RedirectResponse(url="/wizard/wifi", status_code=302)
+                # /wizard resolves to the outstanding step — which is not always
+                # Wi-Fi (Ethernet-only boards skip it).
+                return RedirectResponse(url="/wizard", status_code=302)
         elif is_wizard:
             return RedirectResponse(url="/", status_code=302)
         return await call_next(request)

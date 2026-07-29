@@ -20,6 +20,11 @@ TARGET_HOSTNAME="stillhem"
 # (build.sh refuses the build otherwise). So the password is mandatory, not a
 # choice.
 #
+#
+# tty1 auto-logs in on top of this (see stage-stillhem/01-console), so the
+# password below is not actually typed at the physical console either — it
+# exists to satisfy pi-gen and to back the dev variant's SSH login.
+#
 # For local debugging, build with PIGEN_VARIANT=dev, which turns SSH back on.
 # Never publish a dev image.
 FIRST_USER_NAME="stillhem"
