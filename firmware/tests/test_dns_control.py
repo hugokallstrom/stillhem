@@ -132,12 +132,75 @@ def test_reload_dns_returns_true_when_schedule_flips(tmp_path: Path) -> None:
     outside = datetime(2026, 7, 27, 0, 30)  # Mon 00:30
     inside = datetime(2026, 7, 27, 12, 0)   # Mon 12:00
 
-    with patch("stillhem.dns_control.is_unbound_running", return_value=False):
+    with patch("stillhem.dns_control.is_unbound_running", return_value=True), \
+         patch("stillhem.dns_control.reload_unbound"):
         reload_dns(db_path, blocklist_path, conf_path, TEMPLATE_DIR, now=outside)
         assert "instagram.com" in blocklist_path.read_text()
-        # Crossing into the window flips the file.
+        # Crossing into the window flips the file, so Unbound is reloaded.
         assert reload_dns(db_path, blocklist_path, conf_path, TEMPLATE_DIR, now=inside) is True
         assert "instagram.com" not in blocklist_path.read_text()
+
+
+def test_reload_dns_retries_reload_after_unbound_was_down(tmp_path: Path) -> None:
+    """A change made while Unbound is down must be applied once it comes back.
+
+    reload_dns gates on file-content change. If the blocklist flips while Unbound
+    is down, the conf is regenerated but the reload is skipped. Next minute the
+    content is identical, so without a pending marker reload_dns would return
+    early and Unbound would never pick up the change.
+    """
+    db_path = tmp_path / "test.db"
+    from stillhem.db import init_db
+    from stillhem.blocklist import add_domain
+    init_db(db_path)
+    add_domain("reddit.com", db_path)
+
+    blocklist_path = tmp_path / "blocklist.txt"
+    conf_path = tmp_path / "stillhem.conf"
+
+    # Tick 1: content changes but Unbound is down -> reload skipped, marker set.
+    with patch("stillhem.dns_control.is_unbound_running", return_value=False), \
+         patch("stillhem.dns_control.reload_unbound") as mock_reload:
+        assert reload_dns(db_path, blocklist_path, conf_path, TEMPLATE_DIR) is False
+        mock_reload.assert_not_called()
+
+    # Tick 2: content is now identical, but Unbound is back -> must reload.
+    with patch("stillhem.dns_control.is_unbound_running", return_value=True), \
+         patch("stillhem.dns_control.reload_unbound") as mock_reload:
+        assert reload_dns(db_path, blocklist_path, conf_path, TEMPLATE_DIR) is True
+        mock_reload.assert_called_once()
+
+    # Tick 3: nothing pending, content unchanged, Unbound up -> genuine no-op.
+    with patch("stillhem.dns_control.generate_unbound_conf") as mock_gen, \
+         patch("stillhem.dns_control.is_unbound_running", return_value=True), \
+         patch("stillhem.dns_control.reload_unbound") as mock_reload:
+        assert reload_dns(db_path, blocklist_path, conf_path, TEMPLATE_DIR) is False
+        mock_gen.assert_not_called()
+        mock_reload.assert_not_called()
+
+
+def test_reload_dns_retries_reload_after_reload_failure(tmp_path: Path) -> None:
+    """If reload_unbound raises, the pending marker must survive so the next tick retries."""
+    db_path = tmp_path / "test.db"
+    from stillhem.db import init_db
+    from stillhem.blocklist import add_domain
+    init_db(db_path)
+    add_domain("reddit.com", db_path)
+
+    blocklist_path = tmp_path / "blocklist.txt"
+    conf_path = tmp_path / "stillhem.conf"
+
+    # Tick 1: content changes, Unbound up, but reload raises.
+    with patch("stillhem.dns_control.is_unbound_running", return_value=True), \
+         patch("stillhem.dns_control.reload_unbound", side_effect=RuntimeError("boom")):
+        with pytest.raises(RuntimeError):
+            reload_dns(db_path, blocklist_path, conf_path, TEMPLATE_DIR)
+
+    # Tick 2: content identical, Unbound up -> retry the reload.
+    with patch("stillhem.dns_control.is_unbound_running", return_value=True), \
+         patch("stillhem.dns_control.reload_unbound") as mock_reload:
+        assert reload_dns(db_path, blocklist_path, conf_path, TEMPLATE_DIR) is True
+        mock_reload.assert_called_once()
 
 
 from unittest.mock import MagicMock, patch as _patch

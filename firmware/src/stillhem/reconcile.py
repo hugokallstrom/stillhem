@@ -1,8 +1,9 @@
 """Entrypoint for the 1-minute reconcile timer (`python -m stillhem.reconcile`).
 
 Recomputes the effective blocklist from the current schedules and reloads Unbound
-only if it changed. `reload_dns` no-ops when unchanged, so per-minute runs are
-cheap.
+when the content changed or a prior reload is still pending (skipped/failed).
+`reload_dns` no-ops when nothing changed and nothing is pending, so per-minute
+runs are cheap.
 """
 import os
 import subprocess
