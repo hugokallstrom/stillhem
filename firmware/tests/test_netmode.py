@@ -174,9 +174,47 @@ def test_boot_writes_mode_even_if_ap_fails(state_dir):
     with patch.object(netmode, "has_wifi_device", return_value=True), \
          patch.object(netmode, "should_enter_setup", return_value=True), \
          patch.object(netmode, "scan_networks", return_value=[]), \
-         patch.object(netmode, "start_ap", side_effect=RuntimeError("no AP")):
+         patch.object(netmode, "start_ap", side_effect=RuntimeError("no AP")), \
+         patch.object(netmode.time, "sleep"):
         with pytest.raises(RuntimeError):
             netmode.boot()
+    assert netmode.read_mode() == "setup"
+
+
+def test_boot_retries_ap_after_transient_failure(state_dir):
+    # A transient nmcli failure on the first attempt must not leave the device
+    # without an AP: boot() retries and the AP comes up on a later attempt.
+    start = MagicMock(side_effect=[RuntimeError("nmcli busy"), None])
+    with patch.object(netmode, "has_wifi_device", return_value=True), \
+         patch.object(netmode, "should_enter_setup", return_value=True), \
+         patch.object(netmode, "scan_networks", return_value=[]), \
+         patch.object(netmode, "start_ap", start), \
+         patch.object(netmode, "stop_ap") as stop, \
+         patch.object(netmode.time, "sleep") as sleep:
+        netmode.boot()
+    assert start.call_count == 2
+    # The failed first attempt is torn down before the retry, so the retry's
+    # `connection add` doesn't collide with a stale con-name.
+    assert stop.call_count == 1
+    sleep.assert_called()  # backed off between attempts
+    assert netmode.read_mode() == "setup"
+
+
+def test_boot_exhausts_ap_retries_then_raises(state_dir, caplog):
+    # Every attempt fails: boot() must exhaust the bounded retries, log loudly,
+    # then re-raise so the unit surfaces the failure rather than sitting silent.
+    start = MagicMock(side_effect=RuntimeError("no AP"))
+    with patch.object(netmode, "has_wifi_device", return_value=True), \
+         patch.object(netmode, "should_enter_setup", return_value=True), \
+         patch.object(netmode, "scan_networks", return_value=[]), \
+         patch.object(netmode, "start_ap", start), \
+         patch.object(netmode, "stop_ap"), \
+         patch.object(netmode.time, "sleep"):
+        with caplog.at_level("ERROR"):
+            with pytest.raises(RuntimeError):
+                netmode.boot()
+    assert start.call_count == netmode.AP_START_ATTEMPTS
+    assert any(r.levelname == "ERROR" for r in caplog.records)
     assert netmode.read_mode() == "setup"
 
 
