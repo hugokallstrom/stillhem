@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
+from starlette.testclient import TestClient
 
 from stillhem.auth import set_password
 from stillhem.admin.app import create_app

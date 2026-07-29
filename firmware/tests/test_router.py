@@ -2,7 +2,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from fastapi.testclient import TestClient
+from starlette.testclient import TestClient
 
 from stillhem.admin.app import create_app
 from stillhem.auth import set_password

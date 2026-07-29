@@ -1,14 +1,14 @@
 import time
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
+from starlette.requests import Request
+from starlette.responses import HTMLResponse, RedirectResponse
+from starlette.routing import Route
+from starlette.templating import Jinja2Templates
 
 from stillhem.admin.deps import require_auth
 from stillhem.blocklist import (
     add_custom_domain,
-    add_domain,
     clear_schedule,
     get_categories,
     list_domains,
@@ -22,7 +22,6 @@ from stillhem.netinfo import primary_ip
 from stillhem.schedule import hhmm_to_min
 from stillhem.serving import is_serving, queries_per_minute
 
-router = APIRouter()
 templates = Jinja2Templates(
     directory=str(Path(__file__).parent.parent.parent.parent.parent / "templates")
 )
@@ -62,18 +61,19 @@ def _dashboard_response(request: Request) -> HTMLResponse:
     )
 
 
-@router.get("/", response_class=HTMLResponse)
-def dashboard(request: Request, _token: str = Depends(require_auth)) -> HTMLResponse:
+async def dashboard(request: Request):
+    redirect = require_auth(request)
+    if redirect:
+        return redirect
     return _dashboard_response(request)
 
 
-@router.post("/blocklist/add")
-def blocklist_add(
-    request: Request,
-    domain: str = Form(...),
-    _token: str = Depends(require_auth),
-):
-    domain = domain.strip()
+async def blocklist_add(request: Request):
+    redirect = require_auth(request)
+    if redirect:
+        return redirect
+    form = await request.form()
+    domain = form.get("domain", "").strip()
     if not domain:
         return RedirectResponse(url="/", status_code=302)
     db_path = request.app.state.db_path
@@ -87,12 +87,12 @@ def blocklist_add(
     return RedirectResponse(url="/", status_code=302)
 
 
-@router.post("/blocklist/remove")
-def blocklist_remove(
-    request: Request,
-    domain: str = Form(...),
-    _token: str = Depends(require_auth),
-):
+async def blocklist_remove(request: Request):
+    redirect = require_auth(request)
+    if redirect:
+        return redirect
+    form = await request.form()
+    domain = form.get("domain", "")
     db_path = request.app.state.db_path
     remove_domain(domain, db_path)
     reload_dns(
@@ -104,15 +104,15 @@ def blocklist_remove(
     return RedirectResponse(url="/", status_code=302)
 
 
-@router.post("/schedule/set")
-def schedule_set(
-    request: Request,
-    category: str = Form(...),
-    days: str = Form(""),          # CSV "0,5,6"
-    start: str = Form("00:00"),    # "HH:MM"
-    end: str = Form("00:00"),      # "HH:MM"
-    _token: str = Depends(require_auth),
-):
+async def schedule_set(request: Request):
+    redirect = require_auth(request)
+    if redirect:
+        return redirect
+    form = await request.form()
+    category = form.get("category", "")
+    days = form.get("days", "")          # CSV "0,5,6"
+    start = form.get("start", "00:00")   # "HH:MM"
+    end = form.get("end", "00:00")       # "HH:MM"
     db_path = request.app.state.db_path
     if category not in ("social", "video", "custom"):
         return RedirectResponse(url="/", status_code=302)
@@ -141,12 +141,12 @@ def schedule_set(
     return RedirectResponse(url="/", status_code=302)
 
 
-@router.post("/blocklist/toggle")
-def blocklist_toggle(
-    request: Request,
-    platform: str = Form(...),
-    _token: str = Depends(require_auth),
-):
+async def blocklist_toggle(request: Request):
+    redirect = require_auth(request)
+    if redirect:
+        return redirect
+    form = await request.form()
+    platform = form.get("platform", "")
     db_path = request.app.state.db_path
     try:
         toggle_platform(platform, db_path)
@@ -159,3 +159,12 @@ def blocklist_toggle(
         request.app.state.template_dir,
     )
     return RedirectResponse(url="/", status_code=302)
+
+
+routes = [
+    Route("/", dashboard, methods=["GET"]),
+    Route("/blocklist/add", blocklist_add, methods=["POST"]),
+    Route("/blocklist/remove", blocklist_remove, methods=["POST"]),
+    Route("/schedule/set", schedule_set, methods=["POST"]),
+    Route("/blocklist/toggle", blocklist_toggle, methods=["POST"]),
+]

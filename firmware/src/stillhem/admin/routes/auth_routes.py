@@ -1,22 +1,23 @@
-from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from pathlib import Path
 
-from stillhem.auth import check_password, create_session_token, validate_session_token
+from starlette.requests import Request
+from starlette.responses import HTMLResponse, RedirectResponse
+from starlette.routing import Route
+from starlette.templating import Jinja2Templates
+
+from stillhem.auth import check_password, create_session_token
 from stillhem.admin.deps import require_auth
 
-router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent.parent.parent.parent / "templates"))
 
 
-@router.get("/login", response_class=HTMLResponse)
-def login_page(request: Request) -> HTMLResponse:
+async def login_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "login.html", {"error": None})
 
 
-@router.post("/login")
-def login(request: Request, password: str = Form(...)):
+async def login(request: Request):
+    form = await request.form()
+    password = form.get("password", "")
     db_path = request.app.state.db_path
     if not check_password(password, db_path):
         return templates.TemplateResponse(
@@ -31,8 +32,10 @@ def login(request: Request, password: str = Form(...)):
     return response
 
 
-@router.post("/logout")
-def logout(request: Request, _token: str = Depends(require_auth)):
+async def logout(request: Request):
+    redirect = require_auth(request)
+    if redirect:
+        return redirect
     from stillhem.db import get_db
     db_path = request.app.state.db_path
     with get_db(db_path) as conn:
@@ -40,3 +43,10 @@ def logout(request: Request, _token: str = Depends(require_auth)):
     response = RedirectResponse(url="/login", status_code=302)
     response.delete_cookie("session")
     return response
+
+
+routes = [
+    Route("/login", login_page, methods=["GET"]),
+    Route("/login", login, methods=["POST"]),
+    Route("/logout", logout, methods=["POST"]),
+]

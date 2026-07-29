@@ -1,9 +1,10 @@
 import subprocess
 from pathlib import Path
 
-from fastapi import APIRouter, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
+from starlette.requests import Request
+from starlette.responses import HTMLResponse, RedirectResponse
+from starlette.routing import Route
+from starlette.templating import Jinja2Templates
 
 from stillhem import netmode
 from stillhem.auth import is_password_set, set_password
@@ -11,7 +12,6 @@ from stillhem.blocklist import import_preset
 from stillhem.db import delete_config, get_config, set_config
 from stillhem.dns_control import reload_dns
 
-router = APIRouter()
 templates = Jinja2Templates(
     directory=str(Path(__file__).parent.parent.parent.parent.parent / "templates")
 )
@@ -39,14 +39,12 @@ def _guard(request: Request):
     return None
 
 
-@router.get("/wizard")
-def wizard_index(request: Request):
+async def wizard_index(request: Request):
     """Entry point: send the browser to whichever step is outstanding."""
     return RedirectResponse(url=_current_step(request.app.state.db_path), status_code=302)
 
 
-@router.get("/wizard/wifi", response_class=HTMLResponse)
-def wifi_page(request: Request):
+async def wifi_page(request: Request):
     redirect = _guard(request)
     if redirect:
         return redirect
@@ -54,13 +52,11 @@ def wifi_page(request: Request):
     return templates.TemplateResponse(request, "wizard_wifi.html", {"networks": networks, "error": None})
 
 
-@router.post("/wizard/wifi")
-def wifi_submit(
-    request: Request,
-    ssid: str = Form(""),
-    ssid_manual: str = Form(""),
-    password: str = Form(""),
-):
+async def wifi_submit(request: Request):
+    form = await request.form()
+    ssid = form.get("ssid", "")
+    ssid_manual = form.get("ssid_manual", "")
+    password = form.get("password", "")
     # A typed-in network name takes precedence over the dropdown selection.
     chosen = ssid_manual.strip() or ssid.strip()
     if not chosen:
@@ -74,16 +70,16 @@ def wifi_submit(
     return RedirectResponse(url="/wizard/preset", status_code=302)
 
 
-@router.get("/wizard/preset", response_class=HTMLResponse)
-def preset_page(request: Request):
+async def preset_page(request: Request):
     redirect = _guard(request)
     if redirect:
         return redirect
     return templates.TemplateResponse(request, "wizard_preset.html", {"presets": PRESETS, "error": None})
 
 
-@router.post("/wizard/preset")
-def preset_submit(request: Request, preset: str = Form(...)):
+async def preset_submit(request: Request):
+    form = await request.form()
+    preset = form.get("preset", "")
     db_path = request.app.state.db_path
     if preset not in PRESETS:
         return templates.TemplateResponse(
@@ -100,16 +96,17 @@ def preset_submit(request: Request, preset: str = Form(...)):
     return RedirectResponse(url="/wizard/password", status_code=302)
 
 
-@router.get("/wizard/password", response_class=HTMLResponse)
-def password_page(request: Request):
+async def password_page(request: Request):
     redirect = _guard(request)
     if redirect:
         return redirect
     return templates.TemplateResponse(request, "wizard_password.html", {"error": None})
 
 
-@router.post("/wizard/password")
-def password_submit(request: Request, password: str = Form(...), confirm: str = Form(...)):
+async def password_submit(request: Request):
+    form = await request.form()
+    password = form.get("password", "")
+    confirm = form.get("confirm", "")
     db_path = request.app.state.db_path
     if len(password) < 5:
         return templates.TemplateResponse(
@@ -123,8 +120,7 @@ def password_submit(request: Request, password: str = Form(...), confirm: str = 
     return RedirectResponse(url="/wizard/done", status_code=302)
 
 
-@router.get("/wizard/done", response_class=HTMLResponse)
-def done_page(request: Request):
+async def done_page(request: Request):
     redirect = _guard(request)
     if redirect:
         return redirect
@@ -132,8 +128,7 @@ def done_page(request: Request):
     return templates.TemplateResponse(request, "wizard_done.html", {"ssid": ssid})
 
 
-@router.post("/wizard/finish")
-def finish(request: Request):
+async def finish(request: Request):
     db_path = request.app.state.db_path
     if _current_step(db_path) != "/wizard/done":
         return RedirectResponse(url=_current_step(db_path), status_code=302)
@@ -150,3 +145,16 @@ def finish(request: Request):
     # Deferred so the HTTP response flushes before the box reboots.
     subprocess.Popen(["systemd-run", "--on-active=3", "systemctl", "reboot"])
     return templates.TemplateResponse(request, "wizard_done.html", {"ssid": ssid, "restarting": True})
+
+
+routes = [
+    Route("/wizard", wizard_index, methods=["GET"]),
+    Route("/wizard/wifi", wifi_page, methods=["GET"]),
+    Route("/wizard/wifi", wifi_submit, methods=["POST"]),
+    Route("/wizard/preset", preset_page, methods=["GET"]),
+    Route("/wizard/preset", preset_submit, methods=["POST"]),
+    Route("/wizard/password", password_page, methods=["GET"]),
+    Route("/wizard/password", password_submit, methods=["POST"]),
+    Route("/wizard/done", done_page, methods=["GET"]),
+    Route("/wizard/finish", finish, methods=["POST"]),
+]
