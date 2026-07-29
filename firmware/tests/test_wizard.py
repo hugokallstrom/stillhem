@@ -62,10 +62,13 @@ def test_finish_without_wifi_hardware_skips_profile_save(setup_client, db_path, 
     set_password("hunter2", db_path)
     with patch("stillhem.admin.routes.wizard_routes.netmode.save_home_wifi") as save, \
          patch("stillhem.admin.routes.wizard_routes.netmode.mark_setup_complete") as mark, \
+         patch("stillhem.admin.routes.wizard_routes.delete_config") as purge, \
          patch("stillhem.admin.routes.wizard_routes.subprocess.Popen") as popen:
         resp = setup_client.post("/wizard/finish", follow_redirects=False)
     # nmcli would fail against a wlan0 that does not exist.
     save.assert_not_called()
+    # No profile saved means no PSK to purge — the DB is left untouched.
+    purge.assert_not_called()
     mark.assert_called_once()
     popen.assert_called_once()
     assert resp.status_code == 200
@@ -174,6 +177,23 @@ def test_finish_schedules_reboot(setup_client, db_path):
     mark.assert_called_once()
     popen.assert_called_once()
     assert resp.status_code in (200, 302)
+
+
+def test_finish_purges_plaintext_psk_from_db(setup_client, db_path):
+    from stillhem.db import set_config
+    from stillhem.auth import set_password
+    set_config(db_path, "home_wifi_ssid", "HomeNet")
+    set_config(db_path, "home_wifi_psk", "s3cret")
+    set_config(db_path, "wizard_preset", "social_only")
+    set_password("hunter2", db_path)
+    with patch("stillhem.admin.routes.wizard_routes.netmode.save_home_wifi"), \
+         patch("stillhem.admin.routes.wizard_routes.netmode.mark_setup_complete"), \
+         patch("stillhem.admin.routes.wizard_routes.subprocess.Popen"):
+        setup_client.post("/wizard/finish", follow_redirects=False)
+    # PSK must not linger in the DB once NetworkManager owns the profile.
+    assert get_config(db_path, "home_wifi_psk") is None
+    # SSID is non-sensitive and still shown on the done page.
+    assert get_config(db_path, "home_wifi_ssid") == "HomeNet"
 
 
 def test_finish_guard_redirects_when_incomplete(setup_client, db_path):

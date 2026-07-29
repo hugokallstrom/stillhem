@@ -32,7 +32,7 @@ def test_get_db_returns_row_factory(tmp_path: Path) -> None:
     assert row["value"] == "v"
 
 
-from stillhem.db import get_config, set_config
+from stillhem.db import delete_config, get_config, set_config
 
 
 def test_set_and_get_config(db_path: Path) -> None:
@@ -45,3 +45,14 @@ def test_set_config_overwrites(db_path: Path) -> None:
     set_config(db_path, "k", "v1")
     set_config(db_path, "k", "v2")
     assert get_config(db_path, "k") == "v2"
+
+
+def test_delete_config_removes_key(db_path: Path) -> None:
+    set_config(db_path, "k", "v")
+    delete_config(db_path, "k")
+    assert get_config(db_path, "k") is None
+
+
+def test_delete_config_missing_key_is_noop(db_path: Path) -> None:
+    delete_config(db_path, "absent")  # must not raise
+    assert get_config(db_path, "absent") is None

@@ -27,6 +27,9 @@ _SEED_PLATFORMS = [
 
 
 def get_db(path: Path = DB_PATH) -> sqlite3.Connection:
+    # Callers use `with get_db(path) as conn:` — sqlite3.Connection.__exit__
+    # commits on success (and rolls back on error), so writes must stay inside
+    # that block to be persisted.
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
     return conn
@@ -84,3 +87,8 @@ def get_config(path: Path, key: str) -> str | None:
 def set_config(path: Path, key: str, value: str) -> None:
     with get_db(path) as conn:
         conn.execute("INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)", (key, value))
+
+
+def delete_config(path: Path, key: str) -> None:
+    with get_db(path) as conn:
+        conn.execute("DELETE FROM config WHERE key = ?", (key,))
