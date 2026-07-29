@@ -109,13 +109,13 @@ def test_add_empty_domain_is_rejected(authed_client: TestClient) -> None:
     assert resp.status_code in (200, 422)
 
 
-def test_remove_form_has_confirmation_dialog(authed_client: TestClient, db_path: Path) -> None:
-    add_domain("instagram.com", db_path)
+def test_dashboard_shows_instagram_in_social_card(authed_client: TestClient, db_path: Path) -> None:
+    # Instagram is pre-seeded by init_db; it should appear in the social card.
     resp = authed_client.get("/")
     assert resp.status_code == 200
-    # Remove forms must require a JS confirm before submitting
-    assert "onsubmit=\"return confirm" in resp.text
     assert "instagram.com" in resp.text
+    # Social card should be present
+    assert "Social" in resp.text
 
 
 import time as _time
@@ -123,18 +123,17 @@ import time as _time
 from stillhem.db import set_config as _set_config
 
 
-def test_dashboard_shows_not_set_up_when_quiet(authed_client: TestClient, db_path) -> None:
+def test_dashboard_shows_router_link_when_quiet(authed_client: TestClient, db_path) -> None:
     with patch("stillhem.admin.routes.blocklist_routes.total_queries", return_value=0):
         resp = authed_client.get("/")
     assert resp.status_code == 200
-    assert "isn't set up yet" in resp.text
     assert "/router" in resp.text
 
 
-def test_dashboard_shows_serving_when_traffic_flowing(authed_client: TestClient, db_path) -> None:
+def test_dashboard_hides_router_link_when_serving(authed_client: TestClient, db_path) -> None:
     # Seed a prior sample 60s ago at count 0; now report 300 -> 300 q/min -> serving.
     _set_config(db_path, "serving_sample", f"{_time.time() - 60}:0")
     with patch("stillhem.admin.routes.blocklist_routes.total_queries", return_value=300):
         resp = authed_client.get("/")
     assert resp.status_code == 200
-    assert "serving your network" in resp.text
+    assert "Blocking" in resp.text

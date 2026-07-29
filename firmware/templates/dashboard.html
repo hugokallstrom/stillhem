@@ -1,46 +1,132 @@
 {% extends "base.html" %}
 {% block content %}
-<nav>
+<header>
   <span class="brand">Stillhem</span>
-  <form method="post" action="/logout">
-    <button type="submit" class="danger">Logout</button>
-  </form>
-</nav>
-
-{% if serving %}
-<p class="notice ok">Stillhem is serving your network</p>
-{% else %}
-<p class="notice"><span class="status-inactive">DNS isn't set up yet</span> —
-  <a href="/router">Set up your router</a> (point it at {{ pi_ip }}).
-  <small>If you just changed it, use a device for a moment, then refresh this page.</small></p>
-{% endif %}
-
-<p class="status">
-  Status:
   {% if blocking_active %}
-  <span class="status-active">Blocking active</span>
+  <span class="status-pill"><span class="dot"></span>Blocking active</span>
   {% else %}
-  <span class="status-inactive">Blocking inactive — check Unbound service</span>
+  <span class="status-pill inactive"><span class="dot"></span>Blocking inactive</span>
   {% endif %}
-  &mdash; {{ domain_count }} domain{% if domain_count != 1 %}s{% endif %} blocked
+</header>
+
+<h1>Blocking</h1>
+<p class="sub">Applies to every device on this network.
+  {% if not serving %}<a href="/router">Set up your router</a> first.{% endif %}
 </p>
 
-<form method="post" action="/blocklist/add" class="add-row">
-  <input type="text" name="domain" placeholder="e.g. example.com" required style="flex:1">
-  <button type="submit">Add</button>
-</form>
+{% for cat in categories %}
+<div class="card {{ cat.name }}">
+  <div class="card-head">
+    <span class="card-title">{{ cat.label }}</span>
+    <span class="card-count">{{ cat.blocked_count }} of {{ cat.total_count }} blocked</span>
+  </div>
 
-<ul class="domain-list">
-  {% for d in domains %}
-  <li>
-    <span class="dom">{{ d.domain }}{% if d.preset %} <small>({{ d.preset }})</small>{% endif %}</span>
-    <form method="post" action="/blocklist/remove" onsubmit="return confirm('Remove {{ d.domain }} from the blocklist?');">
-      <input type="hidden" name="domain" value="{{ d.domain }}">
-      <button type="submit" class="danger">Remove</button>
-    </form>
-  </li>
-  {% else %}
-  <li class="empty">No domains blocked yet.</li>
+  {% for platform in cat.platforms %}
+  <div class="row{% if platform.enabled %} blocked{% endif %}" data-platform="{{ platform.name }}">
+    <div class="row-label">
+      <b>{{ platform.display_name }}</b>
+      <span>{{ platform.primary_domain }}</span>
+    </div>
+    <div class="row-right">
+      <span class="badge">{{ "Blocked" if platform.enabled else "Allowed" }}</span>
+      <button
+        class="switch"
+        aria-pressed="{{ 'true' if platform.enabled else 'false' }}"
+        aria-label="{{ 'Unblock' if platform.enabled else 'Block' }} {{ platform.display_name }}"
+        hx-post="/blocklist/toggle"
+        hx-vals='{"platform": "{{ platform.name }}"}'
+        hx-swap="none"
+      ></button>
+      {% if cat.name == "custom" %}
+      <button
+        class="remove"
+        aria-label="Remove {{ platform.display_name }}"
+        onclick="if(confirm('Remove {{ platform.display_name }} from the blocklist?')) {
+          fetch('/blocklist/remove', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'domain={{ platform.primary_domain }}'}).then(()=>location.reload());
+        }"
+      >×</button>
+      {% endif %}
+    </div>
+  </div>
   {% endfor %}
-</ul>
+
+  <button class="add-btn" aria-label="Add a site to {{ cat.label }}">+ Add site</button>
+</div>
+{% endfor %}
+
+<footer>
+  <span>stillhem.local</span>
+  <span>v0.1 · open source</span>
+</footer>
+
+<script>
+/* ── Optimistic toggle ── */
+document.querySelectorAll('.switch').forEach(function(sw) {
+  sw.addEventListener('htmx:afterRequest', function() {});
+  sw.addEventListener('click', function() {
+    var on = sw.getAttribute('aria-pressed') === 'true';
+    sw.setAttribute('aria-pressed', String(!on));
+    var row = sw.closest('.row');
+    row.classList.toggle('blocked', !on);
+    var badge = row.querySelector('.badge');
+    if (badge) badge.textContent = !on ? 'Blocked' : 'Allowed';
+    sw.setAttribute('aria-label', (!on ? 'Unblock ' : 'Block ') +
+      row.querySelector('b').textContent);
+    refreshCounts();
+  });
+});
+
+function refreshCounts() {
+  document.querySelectorAll('.card').forEach(function(card) {
+    var head = card.querySelector('.card-head');
+    if (!head) return;
+    var rows = card.querySelectorAll('.row');
+    var blocked = card.querySelectorAll('.row.blocked').length;
+    var count = head.querySelector('.card-count');
+    if (count) count.textContent = blocked + ' of ' + rows.length + ' blocked';
+  });
+}
+
+/* ── + Add site ── */
+document.querySelectorAll('.add-btn').forEach(wireAddButton);
+
+function wireAddButton(btn) {
+  btn.addEventListener('click', function() {
+    var editor = document.createElement('div');
+    editor.className = 'add-editor';
+    editor.innerHTML =
+      '<input type="text" placeholder="e.g. dailymail.co.uk" aria-label="Site to block">' +
+      '<button class="btn-add" type="button">Add</button>';
+    btn.replaceWith(editor);
+    var input = editor.querySelector('input');
+    var addBtn = editor.querySelector('.btn-add');
+    input.focus();
+
+    function restore() {
+      var nb = document.createElement('button');
+      nb.className = 'add-btn';
+      nb.textContent = '+ Add site';
+      editor.replaceWith(nb);
+      wireAddButton(nb);
+    }
+
+    function commit() {
+      var raw = input.value.trim().toLowerCase()
+        .replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
+      if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(raw)) { input.focus(); return; }
+      fetch('/blocklist/add', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'domain=' + encodeURIComponent(raw)
+      }).then(function() { location.reload(); });
+    }
+
+    addBtn.addEventListener('click', commit);
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') commit();
+      if (e.key === 'Escape') restore();
+    });
+  });
+}
+</script>
 {% endblock %}

@@ -3,6 +3,28 @@ from pathlib import Path
 
 DB_PATH = Path("/var/lib/stillhem/stillhem.db")
 
+_SEED_PLATFORMS = [
+    # (name, display_name, primary_domain, category, domains...)
+    ("instagram", "Instagram", "instagram.com", "social",
+     ["instagram.com", "cdninstagram.com", "fbcdn.net"]),
+    ("tiktok", "TikTok", "tiktok.com", "social",
+     ["tiktok.com", "tiktokcdn.com", "tiktokv.com"]),
+    ("reddit", "Reddit", "reddit.com", "social",
+     ["reddit.com", "redd.it", "redditstatic.com", "redditmedia.com"]),
+    ("x", "X", "x.com", "social",
+     ["x.com", "twitter.com", "t.co", "twimg.com"]),
+    ("facebook", "Facebook", "facebook.com", "social",
+     ["facebook.com", "threads.net"]),
+    ("snapchat", "Snapchat", "snapchat.com", "social",
+     ["snapchat.com", "sc-cdn.net"]),
+    ("linkedin", "LinkedIn", "linkedin.com", "social",
+     ["linkedin.com"]),
+    ("youtube", "YouTube", "youtube.com", "video",
+     ["youtube.com", "youtu.be", "googlevideo.com", "ytimg.com"]),
+    ("twitch", "Twitch", "twitch.tv", "video",
+     ["twitch.tv", "twitchapps.com"]),
+]
+
 
 def get_db(path: Path = DB_PATH) -> sqlite3.Connection:
     conn = sqlite3.connect(path)
@@ -18,13 +40,33 @@ def init_db(path: Path = DB_PATH) -> None:
                 key   TEXT PRIMARY KEY,
                 value TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS platforms (
+                name           TEXT PRIMARY KEY,
+                display_name   TEXT NOT NULL,
+                primary_domain TEXT NOT NULL,
+                category       TEXT NOT NULL,
+                enabled        INTEGER NOT NULL DEFAULT 1
+            );
             CREATE TABLE IF NOT EXISTS blocked_domains (
                 domain   TEXT PRIMARY KEY,
                 preset   TEXT,
                 enabled  INTEGER NOT NULL DEFAULT 1,
-                added_at TEXT    NOT NULL DEFAULT (datetime('now'))
+                added_at TEXT    NOT NULL DEFAULT (datetime('now')),
+                platform TEXT    REFERENCES platforms(name)
             );
         """)
+        # Seed platforms (only if they don't exist yet)
+        for name, display_name, primary_domain, category, domains in _SEED_PLATFORMS:
+            conn.execute(
+                "INSERT OR IGNORE INTO platforms (name, display_name, primary_domain, category)"
+                " VALUES (?, ?, ?, ?)",
+                (name, display_name, primary_domain, category),
+            )
+            for domain in domains:
+                conn.execute(
+                    "INSERT OR IGNORE INTO blocked_domains (domain, platform) VALUES (?, ?)",
+                    (domain, name),
+                )
 
 
 def get_config(path: Path, key: str) -> str | None:

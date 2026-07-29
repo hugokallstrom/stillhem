@@ -1,84 +1,278 @@
-/* Stillhem admin — visual system aligned with stillhem.com.
-   Fonts are self-hosted (no network) so they render on the offline appliance. */
-
-@font-face { font-family: "Inter"; font-style: normal; font-weight: 400; font-display: swap;
-  src: url("/static/fonts/Inter-Regular.woff2") format("woff2"); }
-@font-face { font-family: "Inter"; font-style: normal; font-weight: 500; font-display: swap;
-  src: url("/static/fonts/Inter-Medium.woff2") format("woff2"); }
-@font-face { font-family: "Inter"; font-style: normal; font-weight: 600; font-display: swap;
-  src: url("/static/fonts/Inter-SemiBold.woff2") format("woff2"); }
-@font-face { font-family: "Space Grotesk"; font-style: normal; font-weight: 500; font-display: swap;
-  src: url("/static/fonts/SpaceGrotesk-Medium.woff2") format("woff2"); }
-@font-face { font-family: "Space Grotesk"; font-style: normal; font-weight: 700; font-display: swap;
-  src: url("/static/fonts/SpaceGrotesk-Bold.woff2") format("woff2"); }
+/* Stillhem admin — visual system v2 (Schibsted Grotesk, card-based dashboard) */
 
 :root {
-  /* Pin to a light rendering so browsers / phone captive-portal webviews
-     with forced ("auto") dark mode don't invert the page into black-on-black. */
   color-scheme: light;
   --bg: #fafaf9;
-  --surface: #ffffff;
+  --card: #ffffff;
+  --border: #e7e5e4;
   --ink: #18181b;
   --muted: #71717a;
+  --muted-bg: #f4f4f5;
+  --accent: #ff4a00;
+  --live: #16a34a;
+  --live-bg: #e8f6ec;
+  --danger: #dc2626;
+  --radius: 12px;
+  --shadow: 0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.05);
+
+  /* Keep legacy vars for non-dashboard templates */
+  --surface: #ffffff;
   --faint: #a1a1aa;
-  --border: #e7e5e4;
   --border-strong: #d6d3d1;
   --row: #f5f5f4;
   --green: #16a34a;
   --green-bg: #dcfce7;
   --green-border: #bbf7d0;
-  --danger: #dc2626;
   --r: 12px;
   --r-sm: 8px;
   --r-pill: 999px;
-  --body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --head: "Space Grotesk", var(--body);
+  --body: "Schibsted Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --head: "Schibsted Grotesk", var(--body);
 }
 
-*, *::before, *::after { box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html { background: var(--bg); }
 body {
-  font-family: var(--body);
-  font-size: 15px;
-  line-height: 1.55;
-  color: var(--ink);
+  font-family: "Schibsted Grotesk", sans-serif;
+  font-size: .925rem;
+  line-height: 1.5;
   background: var(--bg);
-  margin: 0;
-  padding: 2.5rem 1rem;
+  color: var(--ink);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
+::selection { background: var(--ink); color: #fff; }
+
+/* The page wrapper — used by dashboard (full-width) and legacy forms (card) */
 .page {
-  max-width: 560px;
+  width: min(640px, 92vw);
   margin: 0 auto;
+  padding-bottom: 4rem;
+}
+
+/* ── Dashboard header ── */
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.4rem 0;
+}
+.brand {
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: .01em;
+}
+.status-pill {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  color: var(--live);
+  font-size: .78rem;
+  font-weight: 500;
+  background: var(--live-bg);
+  padding: .3rem .7rem;
+  border-radius: 999px;
+}
+.status-pill .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--live);
+}
+.status-pill.inactive {
+  color: var(--danger);
+  background: #fef2f2;
+}
+.status-pill.inactive .dot { background: var(--danger); }
+
+h1 {
+  font-weight: 700;
+  font-size: 1.7rem;
+  letter-spacing: -.01em;
+  padding-top: 1.2rem;
+}
+.sub { color: var(--muted); font-size: .9rem; margin-top: .2rem; }
+
+/* ── Category cards ── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-top: 1.6rem;
+  overflow: hidden;
+}
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: .9rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--muted-bg);
+}
+.card-title { font-weight: 600; font-size: .85rem; }
+.card-count { color: var(--muted); font-size: .8rem; }
+
+/* ── Platform rows ── */
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: .95rem 1.25rem;
+}
+.row + .row { border-top: 1px solid var(--border); }
+.row-label b { display: block; font-weight: 500; font-size: .925rem; }
+.row-label span { color: var(--muted); font-size: .8rem; }
+.row-right {
+  display: flex;
+  align-items: center;
+  gap: .9rem;
+}
+
+.badge {
+  font-size: .72rem;
+  font-weight: 500;
+  padding: .2rem .6rem;
+  border-radius: 999px;
+  background: var(--muted-bg);
+  color: var(--muted);
+}
+.row.blocked .badge { background: var(--ink); color: #fff; }
+
+/* ── shadcn-style toggle switch ── */
+.switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border: none;
+  border-radius: 999px;
+  background: #d6d3d1;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 150ms ease;
+  padding: 0;
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0,0,0,.2);
+  transition: left 150ms ease;
+}
+.switch[aria-pressed="true"] { background: var(--ink); }
+.switch[aria-pressed="true"]::after { left: 22px; }
+.switch:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* ── Remove button (custom rows) ── */
+.remove {
+  font-size: 1rem;
+  line-height: 1;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.remove:hover { background: var(--muted-bg); color: var(--ink); }
+.remove:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+
+/* ── Add site button ── */
+.add-btn {
+  font-family: "Schibsted Grotesk", sans-serif;
+  font-size: .83rem;
+  font-weight: 500;
+  width: 100%;
+  text-align: left;
+  padding: .8rem 1.25rem;
+  border: none;
+  border-top: 1px solid var(--border);
+  background: var(--card);
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+.add-btn:hover { background: var(--muted-bg); color: var(--ink); }
+.add-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+
+/* ── Inline add-domain editor ── */
+.add-editor {
+  border-top: 1px solid var(--border);
+  padding: .75rem 1.25rem;
+  display: flex;
+  gap: .5rem;
+  align-items: center;
+}
+.add-editor input[type="text"] {
+  flex: 1;
+  padding: .45rem .7rem;
+  font-family: "Schibsted Grotesk", sans-serif;
+  font-size: .875rem;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: none;
+}
+.add-editor input[type="text"]:focus { border-color: var(--ink); }
+.add-editor .btn-add {
+  font-family: "Schibsted Grotesk", sans-serif;
+  font-size: .85rem;
+  font-weight: 500;
+  padding: .45rem 1rem;
+  border: 1px solid var(--ink);
+  border-radius: 8px;
+  background: var(--ink);
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 130ms ease;
+}
+.add-editor .btn-add:hover { opacity: .85; }
+
+/* ── Footer ── */
+footer {
+  margin-top: 2.4rem;
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: .78rem;
+}
+
+/* ═══════════════════════════════════════════════
+   Legacy styles — used by login, setup, wizard,
+   router pages. These co-exist with the new design.
+   ═══════════════════════════════════════════════ */
+
+/* Card wrapper for legacy pages */
+.page-card {
+  max-width: 560px;
+  margin: 2.5rem auto;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 16px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 12px 32px -16px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 12px 32px -16px rgba(0,0,0,.12);
   padding: 1.9rem;
 }
 
-h1 {
-  font-family: var(--head);
-  font-weight: 700;
-  font-size: 1.6rem;
-  line-height: 1.12;
-  letter-spacing: -0.02em;
-  margin: 0 0 0.5rem;
-}
 h2 {
-  font-family: var(--head);
   font-weight: 700;
   font-size: 1.05rem;
-  letter-spacing: -0.01em;
-  margin: 1.9rem 0 0.6rem;
+  letter-spacing: -.01em;
+  margin: 1.9rem 0 .6rem;
 }
 p { margin: 0 0 1rem; }
 p:last-child { margin-bottom: 0; }
 .muted, small { color: var(--muted); }
-small { font-size: 0.82rem; }
+small { font-size: .82rem; }
 
 a {
   color: var(--ink);
@@ -88,18 +282,18 @@ a {
 }
 a:hover { text-decoration-color: var(--ink); }
 
-/* Forms */
+/* Forms (legacy) */
 label {
   display: block;
-  margin: 0.95rem 0 0.35rem;
-  font-size: 0.85rem;
+  margin: .95rem 0 .35rem;
+  font-size: .85rem;
   font-weight: 500;
   color: var(--muted);
 }
 input[type="text"], input[type="password"], select {
   width: 100%;
-  padding: 0.6rem 0.75rem;
-  font-family: var(--body);
+  padding: .6rem .75rem;
+  font-family: "Schibsted Grotesk", sans-serif;
   font-size: 1rem;
   color: var(--ink);
   background: var(--surface);
@@ -110,24 +304,24 @@ input[type="text"], input[type="password"], select {
 input:focus, select:focus {
   outline: none;
   border-color: var(--ink);
-  box-shadow: 0 0 0 3px rgba(24, 24, 27, 0.08);
+  box-shadow: 0 0 0 3px rgba(24,24,27,.08);
 }
 
 button, .btn {
   display: inline-block;
-  font-family: var(--body);
+  font-family: "Schibsted Grotesk", sans-serif;
   font-weight: 500;
-  font-size: 0.95rem;
+  font-size: .95rem;
   line-height: 1.2;
-  padding: 0.6rem 1.15rem;
+  padding: .6rem 1.15rem;
   border: 1px solid var(--ink);
   border-radius: var(--r-sm);
   background: var(--ink);
   color: #fff;
   cursor: pointer;
-  transition: opacity 0.12s ease, border-color 0.12s ease;
+  transition: opacity .12s ease, border-color .12s ease;
 }
-button:hover, .btn:hover { opacity: 0.88; }
+button:hover, .btn:hover { opacity: .88; }
 button.secondary {
   background: var(--surface);
   color: var(--ink);
@@ -143,40 +337,39 @@ button.danger:hover { opacity: 1; border-color: var(--danger); }
 
 .error {
   color: var(--danger);
-  font-size: 0.9rem;
-  margin: 0.4rem 0 0.75rem;
+  font-size: .9rem;
+  margin: .4rem 0 .75rem;
 }
 
-/* Dashboard header row */
+/* Dashboard header row (legacy nav) */
 nav {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.35rem;
 }
-nav h1, .brand {
-  font-family: var(--head);
+nav h1, nav .brand {
   font-weight: 700;
   font-size: 1.2rem;
-  letter-spacing: -0.01em;
+  letter-spacing: -.01em;
   margin: 0;
 }
 nav form { margin: 0; }
-nav button { padding: 0.32rem 0.8rem; font-size: 0.8rem; }
+nav button { padding: .32rem .8rem; font-size: .8rem; }
 
-/* Status line */
-.status { font-size: 0.92rem; margin: 0 0 1rem; }
+/* Legacy status line */
+.status { font-size: .92rem; margin: 0 0 1rem; }
 .status-active { color: var(--green); font-weight: 600; }
 .status-inactive { color: var(--danger); font-weight: 600; }
 
-/* Notice banner (router prompt / serving state) */
+/* Notice banner */
 .notice {
   background: var(--row);
   border: 1px solid var(--border);
   border-radius: var(--r);
-  padding: 0.8rem 0.95rem;
+  padding: .8rem .95rem;
   margin: 0 0 1.25rem;
-  font-size: 0.9rem;
+  font-size: .9rem;
 }
 .notice.ok {
   background: var(--green-bg);
@@ -185,22 +378,18 @@ nav button { padding: 0.32rem 0.8rem; font-size: 0.8rem; }
   font-weight: 600;
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: .45rem;
 }
 .notice.ok::before {
   content: "";
-  width: 0.5rem; height: 0.5rem;
+  width: .5rem; height: .5rem;
   border-radius: 50%;
   background: var(--green);
 }
 .notice a { font-weight: 600; }
-.notice small { display: block; margin-top: 0.3rem; }
+.notice small { display: block; margin-top: .3rem; }
 
-/* Add-domain row */
-.add-row { display: flex; gap: 0.5rem; margin: 0.25rem 0 1.5rem; }
-.add-row input { margin: 0; }
-
-/* Domain list as a grouped card */
+/* Domain list (legacy) */
 .domain-list {
   list-style: none;
   padding: 0;
@@ -213,60 +402,64 @@ nav button { padding: 0.32rem 0.8rem; font-size: 0.8rem; }
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.7rem 0.9rem;
+  gap: .75rem;
+  padding: .7rem .9rem;
   border-top: 1px solid var(--border);
-  font-size: 0.95rem;
+  font-size: .95rem;
 }
 .domain-list li:first-child { border-top: none; }
 .domain-list li .dom { font-weight: 500; }
 .domain-list li form { margin: 0; }
-.domain-list li button { padding: 0.28rem 0.7rem; font-size: 0.8rem; }
+.domain-list li button { padding: .28rem .7rem; font-size: .8rem; }
 .domain-list .empty { color: var(--muted); justify-content: flex-start; }
 
-/* Ordered / detail content (router page) */
+/* Ordered / detail content */
 ol { margin: 0 0 1rem; padding-left: 1.25rem; }
-ol li { margin-bottom: 0.4rem; }
+ol li { margin-bottom: .4rem; }
 .ip {
-  font-family: var(--head);
   font-weight: 700;
   font-size: 1.6rem;
-  letter-spacing: -0.01em;
+  letter-spacing: -.01em;
   margin: 0 0 1rem;
 }
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.88em;
+  font-size: .88em;
   background: var(--row);
-  padding: 0.1rem 0.35rem;
+  padding: .1rem .35rem;
   border-radius: 4px;
 }
 details {
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
-  padding: 0 0.85rem;
-  margin-bottom: 0.5rem;
+  padding: 0 .85rem;
+  margin-bottom: .5rem;
 }
 details summary {
   cursor: pointer;
   font-weight: 500;
-  padding: 0.6rem 0;
+  padding: .6rem 0;
   list-style: none;
 }
 details summary::-webkit-details-marker { display: none; }
 details summary::before { content: "＋ "; color: var(--faint); }
 details[open] summary::before { content: "－ "; }
-details p { margin: 0.1rem 0 0.75rem; color: var(--muted); font-size: 0.92rem; }
+details p { margin: .1rem 0 .75rem; color: var(--muted); font-size: .92rem; }
 
-/* Phone / captive-portal viewport: full-bleed, no card chrome */
+/* Phone / captive-portal viewport */
 @media (max-width: 600px) {
   body { padding: 0; }
   .page {
+    width: 100%;
+    min-height: 100vh;
+  }
+  .page-card {
     max-width: none;
     min-height: 100vh;
     border: none;
     border-radius: 0;
     box-shadow: none;
     padding: 1.75rem 1.25rem;
+    margin: 0;
   }
 }
