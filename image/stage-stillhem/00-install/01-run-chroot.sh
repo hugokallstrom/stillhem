@@ -5,8 +5,9 @@ python3 -m venv /opt/stillhem/venv
 /opt/stillhem/venv/bin/pip install --upgrade pip
 /opt/stillhem/venv/bin/pip install -e /opt/stillhem/firmware
 
-# Initialise the database and an empty-blocklist Unbound config so DNS works
-# from first boot.
+# Initialise the database and the Unbound config so DNS blocking is live from
+# first boot. init_db seeds the default social+video blocklist enabled, so the
+# exported file is non-empty and the box blocks out of the box.
 install -d /var/lib/stillhem
 /opt/stillhem/venv/bin/python - <<'PY'
 from pathlib import Path
@@ -17,7 +18,7 @@ from stillhem.dns_control import generate_unbound_conf
 db = Path("/var/lib/stillhem/stillhem.db")
 init_db(db)
 blocklist = Path("/var/lib/stillhem/active_blocklist.txt")
-export_to_file(db, blocklist)  # empty DB -> empty blocklist file
+export_to_file(db, blocklist)  # seeded DB -> default social+video blocklist
 generate_unbound_conf(
     blocklist,
     Path("/etc/unbound/unbound.conf.d/stillhem.conf"),
