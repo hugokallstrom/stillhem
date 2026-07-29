@@ -12,6 +12,9 @@
   --live: #16a34a;
   --live-bg: #e8f6ec;
   --danger: #dc2626;
+  --amber: #b45309;
+  --amber-bg: #fffbeb;
+  --amber-border: #fde68a;
   --radius: 12px;
   --shadow: 0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.05);
 
@@ -67,6 +70,7 @@ header {
 .status-pill {
   display: flex;
   align-items: center;
+  line-height: 1;
   gap: .45rem;
   color: var(--live);
   font-size: .78rem;
@@ -82,10 +86,10 @@ header {
   background: var(--live);
 }
 .status-pill.inactive {
-  color: var(--danger);
-  background: #fef2f2;
+  color: var(--amber);
+  background: var(--amber-bg);
 }
-.status-pill.inactive .dot { background: var(--danger); }
+.status-pill.inactive .dot { background: var(--amber); }
 
 h1 {
   font-weight: 700;
@@ -132,6 +136,9 @@ h1 {
 }
 
 .badge {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
   font-size: .72rem;
   font-weight: 500;
   padding: .2rem .6rem;
@@ -172,6 +179,9 @@ h1 {
 
 /* ── Remove button (custom rows) ── */
 .remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 1rem;
   line-height: 1;
   width: 26px;
@@ -386,6 +396,12 @@ nav button { padding: .32rem .8rem; font-size: .8rem; }
   border-radius: 50%;
   background: var(--green);
 }
+.notice.warn {
+  background: var(--amber-bg);
+  border-color: var(--amber-border);
+  color: var(--amber);
+}
+.notice.warn a { color: var(--amber); }
 .notice a { font-weight: 600; }
 .notice small { display: block; margin-top: .3rem; }
 

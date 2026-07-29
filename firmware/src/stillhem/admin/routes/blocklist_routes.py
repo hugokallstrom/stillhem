@@ -7,6 +7,7 @@ from starlette.routing import Route
 from starlette.templating import Jinja2Templates
 
 from stillhem.admin.deps import require_auth
+from stillhem.clockinfo import clock_status
 from stillhem.blocklist import (
     add_custom_domain,
     clear_schedule,
@@ -17,7 +18,7 @@ from stillhem.blocklist import (
     toggle_platform,
 )
 from stillhem.db import get_config, set_config
-from stillhem.dns_control import is_unbound_running, reload_dns, total_queries
+from stillhem.dns_control import reload_dns, total_queries
 from stillhem.netinfo import primary_ip
 from stillhem.schedule import hhmm_to_min
 from stillhem.serving import is_serving, queries_per_minute
@@ -47,14 +48,19 @@ def _dashboard_response(request: Request) -> HTMLResponse:
     db_path = request.app.state.db_path
     domains = list_domains(db_path)
     categories = get_categories(db_path)
+    serving = _is_serving(db_path)
     return templates.TemplateResponse(
         request,
         "dashboard.html",
         {
             "domains": domains,
             "domain_count": len(domains),
-            "blocking_active": is_unbound_running(),
-            "serving": _is_serving(db_path),
+            # The header pill tells the truth about whether blocking is actually
+            # reaching devices: green only when DNS traffic is flowing through us.
+            # is_unbound_running() alone would go green while the router still
+            # points elsewhere and nothing is actually being blocked.
+            "serving": serving,
+            "clock": clock_status(),
             "pi_ip": primary_ip(),
             "categories": categories,
         },
