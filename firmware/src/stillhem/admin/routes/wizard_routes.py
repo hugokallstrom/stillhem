@@ -8,7 +8,7 @@ from fastapi.templating import Jinja2Templates
 from stillhem import netmode
 from stillhem.auth import is_password_set, set_password
 from stillhem.blocklist import import_preset
-from stillhem.db import get_config, set_config
+from stillhem.db import delete_config, get_config, set_config
 from stillhem.dns_control import reload_dns
 
 router = APIRouter()
@@ -143,6 +143,9 @@ def finish(request: Request):
     # profile for a wlan0 that does not exist would fail the request.
     if ssid:
         netmode.save_home_wifi(ssid, psk)
+        # NetworkManager now owns the persistent copy of the PSK; drop the
+        # plaintext one from the DB so it does not linger in the config table.
+        delete_config(db_path, "home_wifi_psk")
     netmode.mark_setup_complete()
     # Deferred so the HTTP response flushes before the box reboots.
     subprocess.Popen(["systemd-run", "--on-active=3", "systemctl", "reboot"])
