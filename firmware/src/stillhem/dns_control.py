@@ -65,6 +65,10 @@ def total_queries() -> int:
     return 0
 
 
+def _pending_marker_path(unbound_conf_path: Path) -> Path:
+    return unbound_conf_path.with_name(unbound_conf_path.name + ".reload-pending")
+
+
 def reload_dns(
     db_path: Path,
     blocklist_path: Path,
@@ -72,16 +76,31 @@ def reload_dns(
     template_dir: Path = DEFAULT_TEMPLATE_DIR,
     now: datetime | None = None,
 ) -> bool:
-    """Recompute the effective blocklist and reload Unbound only if it changed.
+    """Recompute the effective blocklist and reload Unbound when needed.
 
     The 1-minute reconcile timer calls this every minute, so it must not bounce
-    Unbound when nothing changed. Returns True iff a reload happened. `now` is
-    forwarded to `export_to_file` so callers/tests can inject a fixed clock.
+    Unbound when nothing changed. A reload is needed when the effective blocklist
+    file content changed OR a prior reload was left pending — skipped because
+    Unbound was down, or failed. The pending state is persisted in a marker file
+    next to the conf so it survives across timer ticks (and process restarts).
+
+    When a reload is needed the conf is regenerated. If Unbound is running it is
+    reloaded and the pending marker is cleared; otherwise the marker is set so the
+    next tick retries even though the file content is now identical. Returns True
+    iff Unbound was actually reloaded. `now` is forwarded to `export_to_file` so
+    callers/tests can inject a fixed clock.
     """
     changed = export_to_file(db_path, blocklist_path, now=now)
-    if not changed:
+    marker = _pending_marker_path(unbound_conf_path)
+    if not changed and not marker.exists():
         return False
     generate_unbound_conf(blocklist_path, unbound_conf_path, template_dir)
-    if is_unbound_running():
-        reload_unbound()
+    # Mark pending before attempting the reload so a skip (Unbound down) or a
+    # crash/failure mid-reload retries next tick. Cleared only on a clean reload.
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.touch()
+    if not is_unbound_running():
+        return False
+    reload_unbound()
+    marker.unlink(missing_ok=True)
     return True
