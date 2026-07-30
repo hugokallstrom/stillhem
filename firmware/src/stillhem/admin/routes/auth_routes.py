@@ -39,7 +39,7 @@ async def logout(request: Request):
     from stillhem.db import get_db
     db_path = request.app.state.db_path
     with get_db(db_path) as conn:
-        conn.execute("DELETE FROM config WHERE key = 'session_token'")
+        conn.execute("DELETE FROM config WHERE key IN ('session_token', 'session_expires')")
     response = RedirectResponse(url="/login", status_code=302)
     response.delete_cookie("session")
     return response
