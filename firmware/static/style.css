@@ -90,6 +90,28 @@ header {
   background: var(--amber-bg);
 }
 .status-pill.inactive .dot { background: var(--amber); }
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+}
+.lock-form { margin: 0; }
+.lock-btn {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  line-height: 1;
+  font-family: var(--body);
+  font-size: .78rem;
+  font-weight: 500;
+  color: var(--muted);
+  background: var(--muted-bg);
+  border: none;
+  padding: .3rem .7rem;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+}
+.lock-btn:hover { color: var(--ink); }
 
 h1 {
   font-weight: 700;

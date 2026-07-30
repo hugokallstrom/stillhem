@@ -2,11 +2,16 @@
 {% block content %}
 <header>
   <span class="brand">Stillhem</span>
-  {% if serving %}
-  <span class="status-pill"><span class="dot"></span>Blocking active</span>
-  {% else %}
-  <span class="status-pill inactive"><span class="dot"></span>No DNS traffic</span>
-  {% endif %}
+  <div class="header-right">
+    {% if serving %}
+    <span class="status-pill"><span class="dot"></span>Blocking active</span>
+    {% else %}
+    <span class="status-pill inactive"><span class="dot"></span>No DNS traffic</span>
+    {% endif %}
+    <form method="post" action="/logout" class="lock-form">
+      <button type="submit" class="lock-btn" aria-label="Lock settings">🔒 Lock</button>
+    </form>
+  </div>
 </header>
 
 <h1>Blocking</h1>

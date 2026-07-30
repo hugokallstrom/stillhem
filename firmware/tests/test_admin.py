@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import pytest
@@ -5,6 +6,7 @@ from starlette.testclient import TestClient
 
 from stillhem.auth import set_password
 from stillhem.admin.app import create_app
+from stillhem.db import get_config, set_config
 
 
 @pytest.fixture
@@ -61,6 +63,28 @@ def test_logout_clears_session(authed_client: TestClient) -> None:
     # After logout, root redirects to login
     resp2 = authed_client.get("/", follow_redirects=False)
     assert resp2.status_code == 302
+
+
+def test_logout_clears_session_expires(authed_client: TestClient, db_path: Path) -> None:
+    # The idle-timeout auth layer (sibling work) writes a `session_expires`
+    # key alongside `session_token`. Seed it here so this test is
+    # self-contained and asserts only what this task owns: /logout must
+    # delete `session_expires` too, whether or not the auth layer set it.
+    set_config(db_path, "session_expires", "9999999999")
+    assert get_config(db_path, "session_expires") is not None
+    authed_client.post("/logout", follow_redirects=False)
+    assert get_config(db_path, "session_expires") is None
+
+
+def test_dashboard_has_lock_button(authed_client: TestClient) -> None:
+    resp = authed_client.get("/")
+    assert 'action="/logout"' in resp.text
+    assert "Lock" in resp.text
+    # The Lock label must live inside the /logout form, not merely somewhere
+    # on the page, so a future template refactor can't split them silently.
+    assert re.search(
+        r'action="/logout".*?<button[^>]*>[^<]*Lock', resp.text, re.DOTALL
+    )
 
 
 from unittest.mock import patch
