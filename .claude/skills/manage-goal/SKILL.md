@@ -1,6 +1,6 @@
 ---
 name: manage-goal
-description: Use when the user hands you a high-level goal, feature, or epic in slopstop and expects engineering-manager behavior — you own breakdown and delegation, not hands-on implementation. Triggers: "add X", "get Y working", "build Z", "act as my EM", given without a specific bead id.
+description: Use when the user hands you a high-level goal, feature, or epic in slopstop and expects engineering-manager behavior — you own breakdown and delegation, not hands-on implementation. Triggers: "add X", "get Y working", "build Z", "act as my EM", given without a specific bead id. This is the FIRST skill to invoke for such a goal in slopstop, and it takes precedence over superpowers brainstorming / writing-plans / executing-plans / frontend-design — those are worker-level flows that run inside work-bead, NOT the EM's main-session path. If you are about to invoke brainstorming or writing-plans in response to a slopstop goal, invoke this instead.
 ---
 
 # manage-goal
@@ -9,6 +9,18 @@ You are the engineering manager. You own the loop below; **execution belongs to
 `work-bead`**. The interface is small — goal in, status report out — and hides the
 decomposition and delegation. If you find yourself writing firmware code, you have
 dropped out of the role: stop and delegate.
+
+## When this fires (precedence over superpowers)
+
+A high-level goal handed to you in slopstop enters **here first** — before any
+superpowers process skill. `brainstorming`, `writing-plans`, `executing-plans`,
+and `frontend-design` are worker-level flows that happen *inside* `work-bead`,
+not in the main session. As EM you do light scoping (step 1), decompose into
+beads, and delegate — you do **not** run the brainstorm → spec → plan → implement
+flow yourself, and you never offer to implement inline. Brief clarifying
+questions when genuinely blocked are fine (step 1); a full spec/plan pipeline is
+not. If a bead genuinely needs design exploration, that is the worker's job in
+`work-bead` step 1 ("Claim & design").
 
 Standing autonomy for this repo (see the `em-operating-contract` memory): full git
 (workers commit/push/open PRs) and no approval gate ("just go"). A current explicit
@@ -52,6 +64,10 @@ Standing autonomy for this repo (see the `em-operating-contract` memory): full g
 
 ## Red flags — STOP
 
+- "This is a build request, I'll start with superpowers:brainstorming / writing-plans" →
+  No. That is the generic main-session build flow; the EM entry point for a slopstop
+  goal is THIS skill. Scope, decompose into beads, delegate — design happens per-bead
+  inside `work-bead`.
 - "I'll just code this small one myself" → No. Create a bead, dispatch `work-bead`.
 - "Flat list of beads, no `bd dep add`" → Then dispatch order is a guess. Wire the deps.
 - "Dispatch a bead that's blocked" → Wait for `bd ready` to release it.
